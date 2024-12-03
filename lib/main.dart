@@ -4,18 +4,11 @@ import 'package:dakmadad/firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'features/auth/domain/services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform
-  );
-   await Supabase.initialize(
-    url: 'https://ofblrlmpvkydtrjcftyk.supabase.co', // Replace with your Supabase URL
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9mYmxybG1wdmt5ZHRyamNmdHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzMwNTY4OTQsImV4cCI6MjA0ODYzMjg5NH0.1mNXYIOA6W5Zkn2tCduUzSLYccvcRCLeDlNSqYI73ZQ', // Replace with your Supabase anon key
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
 
@@ -24,13 +17,34 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthService(),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const StartScreen(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+      ],
+      child: Consumer<ThemeNotifier>(
+        builder: (context, themeNotifier, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeNotifier.themeMode,
+            home: const StartScreen(),
+          );
+        },
       ),
     );
+  }
+}
+
+class ThemeNotifier extends ChangeNotifier {
+  ThemeMode _themeMode = ThemeMode.light;
+
+  ThemeMode get themeMode => _themeMode;
+
+  void toggleTheme() {
+    _themeMode =
+        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    notifyListeners();
   }
 }

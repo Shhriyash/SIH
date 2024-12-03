@@ -2,7 +2,9 @@
 
 import 'package:dakmadad/core/theme/app_colors.dart';
 import 'package:dakmadad/features/auth/domain/services/auth_service.dart';
+import 'package:dakmadad/features/auth/presentation/screens/home_screen.dart';
 import 'package:dakmadad/features/camera/pages/edge_detection.dart';
+import 'package:dakmadad/features/routeoptimization/optimized_route_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'register_screen.dart';
@@ -225,7 +227,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const EdgeDetectionPage(),
+                          builder: (context) => HomeScreen(),
                         ),
                       );
                     } else {

@@ -40,35 +40,101 @@ class AppTheme {
         fontWeight: FontWeight.w400,
         color: Colors.grey[600],
       ),
-      enabledBorder: UnderlineInputBorder(
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(
           color: Colors.grey[300]!,
-          width: 5.0,
+          width: 1.5,
         ),
       ),
-      focusedBorder: UnderlineInputBorder(
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(
           color: Colors.grey[400]!,
-          width: 10.0,
+          width: 2.0,
         ),
       ),
-      suffixIconColor: Colors.grey[600],
-      floatingLabelBehavior: FloatingLabelBehavior.always,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.transparent,
-        shadowColor: AppColors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+        backgroundColor: AppColors.primaryRed,
+        textStyle: GoogleFonts.montserrat(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
         ),
-        padding: const EdgeInsets.symmetric(vertical: 16),
       ),
     ),
-    dividerTheme: const DividerThemeData(
-      color: AppColors.primaryRed,
-      thickness: 5,
-      space: 2,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: AppColors.primaryRed,
+      foregroundColor: AppColors.white,
+    ),
+  );
+
+  static ThemeData darkTheme = ThemeData(
+    useMaterial3: true,
+    primaryColor: AppColors.primaryRed,
+    scaffoldBackgroundColor: Colors.black,
+    textTheme: GoogleFonts.montserratTextTheme().copyWith(
+      displayLarge: GoogleFonts.montserrat(
+        fontSize: 32,
+        fontWeight: FontWeight.w800,
+        color: AppColors.primaryRed,
+        height: 1.2,
+      ),
+      bodyLarge: GoogleFonts.montserrat(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+      bodyMedium: GoogleFonts.montserrat(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        color: Colors.white70,
+      ),
+      labelLarge: GoogleFonts.montserrat(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.black,
+        letterSpacing: 0.5,
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: Colors.grey[800],
+      contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      labelStyle: GoogleFonts.montserrat(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: Colors.grey[400],
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(
+          color: Colors.grey[600]!,
+          width: 1.5,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(
+          color: AppColors.primaryRed,
+          width: 2.0,
+        ),
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.deepOrange,
+        textStyle: GoogleFonts.montserrat(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: AppColors.primaryRed,
+      foregroundColor: Colors.black,
     ),
   );
 }

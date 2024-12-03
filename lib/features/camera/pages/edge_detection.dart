@@ -1,12 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:edge_detection/edge_detection.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart'; // For MediaType
+import 'package:path/path.dart' as Path;
+import 'package:path_provider/path_provider.dart' as PathProvider;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
-import 'supabase_helper.dart'; // Import the Supabase helper class
 
 class EdgeDetectionPage extends StatefulWidget {
   const EdgeDetectionPage({Key? key}) : super(key: key);
@@ -24,25 +26,101 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
   bool _isProcessing = false;
   bool _captureRearImage = false;
 
-  final Uuid uuid = Uuid();
-  final SupabaseHelper supabaseHelper =
-      SupabaseHelper(); // Initialize Supabase helper
+  final Uuid uuid = const Uuid();
 
-  Future<void> processImage(String imagePath, String label) async {
+  Future<void> _uploadPhotos() async {
     setState(() {
       _isProcessing = true;
       _mapError = null;
     });
 
+    // Ensure at least one image is selected
+    if (_frontImagePath == null && _rearImagePath == null) {
+      setState(() {
+        _mapError = "No images selected for upload.";
+        _isProcessing = false;
+      });
+      return;
+    }
+
+    var uri = Uri.parse('https://0177-106-222-216-90.ngrok-free.app/upload');
+    var request = http.MultipartRequest('POST', uri);
+
+    try {
+      // Add front image
+      if (_frontImagePath != null) {
+        File frontFile = File(_frontImagePath!);
+        if (!await frontFile.exists()) {
+          throw Exception("Front image file does not exist.");
+        }
+
+        var image1 = await http.MultipartFile.fromPath(
+          'photo1', // Ensure this matches server's expected field name
+          _frontImagePath!,
+          contentType: MediaType('image', 'jpeg'),
+        );
+        request.files.add(image1);
+        request.fields['id1'] = '1';
+      }
+
+      // Add rear image
+      if (_rearImagePath != null) {
+        File rearFile = File(_rearImagePath!);
+        if (!await rearFile.exists()) {
+          throw Exception("Rear image file does not exist.");
+        }
+
+        var image2 = await http.MultipartFile.fromPath(
+          'photo2', // Ensure this matches server's expected field name
+          _rearImagePath!,
+          contentType: MediaType('image', 'jpeg'),
+        );
+        request.files.add(image2);
+        request.fields['id2'] = '2';
+      }
+
+      // Debugging: Log request details
+      print("Request files: ${request.files.map((f) => f.field)}");
+      print("Request fields: ${request.fields}");
+
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseData = await http.Response.fromStream(response);
+        final responseJson = jsonDecode(responseData.body);
+        print('Success: ${responseJson['message']}');
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photos uploaded successfully!')),
+        );
+      } else {
+        // Handle server error response
+        final responseData = await http.Response.fromStream(response);
+        print('Failed to upload photos. Response: ${responseData.body}');
+        setState(() {
+          _mapError = 'Failed to upload photos. Please try again.';
+        });
+      }
+    } catch (e) {
+      // Handle exceptions during the upload process
+      print('Error uploading photos: $e');
+      setState(() {
+        _mapError = 'Error uploading photos: $e';
+      });
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
+  Future<void> processImage(String imagePath, String label) async {
     try {
       // Generate UUID for file name
       String imageUuid = uuid.v4();
-      String fileName = "$imageUuid.jpeg";
 
-      // Upload to Supabase
-      await supabaseHelper.uploadImage(imagePath, fileName);
-
-      // Update UI with UUID
+      // Update UI with UUID and image path
       setState(() {
         if (label == 'front') {
           _frontImagePath = imagePath;
@@ -81,14 +159,13 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     }
 
     // Generate file path
-    String imagePath = join(
-      (await getApplicationSupportDirectory()).path,
-      "${(DateTime.now().millisecondsSinceEpoch / 1000).round()}_${label}.jpeg",
+    String imagePath = Path.join(
+      (await PathProvider.getTemporaryDirectory()).path,
+      "${DateTime.now().millisecondsSinceEpoch}_$label.jpeg",
     );
 
-    bool success = false;
     try {
-      success = await EdgeDetection.detectEdge(
+      bool success = await EdgeDetection.detectEdge(
         imagePath,
         canUseGallery: true,
         androidScanTitle: 'Scanning $label',
@@ -96,125 +173,198 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
         androidCropBlackWhiteTitle: 'Black White $label',
         androidCropReset: 'Reset $label',
       );
+
+      if (success) {
+        await processImage(imagePath, label);
+      } else {
+        setState(() {
+          _isProcessing = false;
+          _mapError = "$label edge detection failed.";
+        });
+      }
     } catch (e) {
       setState(() {
-        _mapError = "Error detecting $label edge: $e";
         _isProcessing = false;
-      });
-      return;
-    }
-
-    if (success) {
-      await processImage(imagePath, label);
-    } else {
-      setState(() {
-        _isProcessing = false;
-        _mapError = "$label edge detection failed.";
+        _mapError = "Error during edge detection: $e";
       });
     }
   }
 
+  Widget buildImageCard(String label, String? imagePath, String? imageUuid) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "$label Image",
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (imageUuid != null)
+              Text(
+                "UUID: $imageUuid",
+                style: const TextStyle(fontSize: 14, color: Colors.green),
+              ),
+            const SizedBox(height: 10),
+            if (imagePath != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(imagePath),
+                  height: 200,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildErrorCard(String errorMessage) {
+    return Card(
+      color: Colors.red[100],
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.red),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                errorMessage,
+                style: const TextStyle(fontSize: 16, color: Colors.red),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildActionButton(
+      String label, VoidCallback onPressed, IconData icon) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 24),
+      label: Text(label, style: const TextStyle(fontSize: 16)),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Determine if the upload button should be enabled
+    bool isUploadEnabled = _frontImagePath != null &&
+        (_rearImagePath != null || !_captureRearImage);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edge Detection with Supabase'),
+        title: const Text('Edge Detection'),
+        centerTitle: true,
+        backgroundColor: theme.primaryColor,
+        elevation: 0,
+        actions: [],
       ),
       body: Stack(
         children: [
-          SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  // Toggle for capturing rear image
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Capture Rear Image',
-                          style: TextStyle(fontSize: 16)),
-                      Switch(
+          Container(
+            color: theme.primaryColor.withOpacity(0.1),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    // Toggle for capturing rear image
+                    Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      child: SwitchListTile(
+                        title: const Text(
+                          'Capture Rear Image',
+                          style: TextStyle(fontSize: 16),
+                        ),
                         value: _captureRearImage,
                         onChanged: (bool value) {
                           setState(() {
                             _captureRearImage = value;
                             _rearImagePath = null;
+                            _rearUuid = null;
                           });
                         },
+                        secondary: Icon(
+                          _captureRearImage
+                              ? Icons.camera_alt
+                              : Icons.camera_alt_outlined,
+                          color: theme.primaryColor,
+                        ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _isProcessing
-                        ? null
-                        : () => getImageFromCamera('front'),
-                    child: const Text('Scan Front Object'),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_captureRearImage)
-                    ElevatedButton(
-                      onPressed: _isProcessing || _frontImagePath == null
-                          ? null
-                          : () => getImageFromCamera('rear'),
-                      child: const Text('Scan Rear Object'),
                     ),
-                  const SizedBox(height: 20),
-
-                  // Display UUID and image for front
-                  if (_frontImagePath != null) ...[
-                    const Text(
-                      "Front Image UUID:",
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      _frontUuid ?? 'No UUID generated',
-                      style: const TextStyle(fontSize: 14, color: Colors.green),
-                    ),
-                    const SizedBox(height: 10),
-                    Image.file(
-                      File(_frontImagePath!),
-                      height: 200,
-                    ),
-                  ],
-
-                  // Display UUID and image for rear if applicable
-                  if (_captureRearImage && _rearImagePath != null) ...[
                     const SizedBox(height: 20),
-                    const Text(
-                      "Rear Image UUID:",
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    buildActionButton(
+                      'Scan Front Object',
+                      _isProcessing ? () {} : () => getImageFromCamera('front'),
+                      Icons.camera,
                     ),
-                    Text(
-                      _rearUuid ?? 'No UUID generated',
-                      style: const TextStyle(fontSize: 14, color: Colors.green),
-                    ),
-                    const SizedBox(height: 10),
-                    Image.file(
-                      File(_rearImagePath!),
-                      height: 200,
-                    ),
-                  ],
-
-                  // Display errors
-                  if (_mapError != null) ...[
                     const SizedBox(height: 20),
-                    Text(
-                      _mapError!,
-                      style: const TextStyle(fontSize: 16, color: Colors.red),
-                      textAlign: TextAlign.center,
-                    ),
+                    if (_captureRearImage)
+                      buildActionButton(
+                        'Scan Rear Object',
+                        _isProcessing || _frontImagePath == null
+                            ? () {}
+                            : () => getImageFromCamera('rear'),
+                        Icons.camera_rear,
+                      ),
+                    const SizedBox(height: 20),
+
+                    // Display images and UUIDs
+                    if (_frontImagePath != null)
+                      buildImageCard('Front', _frontImagePath, _frontUuid),
+                    if (_captureRearImage && _rearImagePath != null)
+                      buildImageCard('Rear', _rearImagePath, _rearUuid),
+
+                    // Upload Button
+                    if (isUploadEnabled)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: buildActionButton(
+                          'Upload Images',
+                          _isProcessing ? () {} : _uploadPhotos,
+                          Icons.cloud_upload,
+                        ),
+                      ),
+
+                    // Display errors
+                    if (_mapError != null) buildErrorCard(_mapError!),
                   ],
-                ],
+                ),
               ),
             ),
           ),
           if (_isProcessing)
             Container(
               color: Colors.black54,
-              child: const Center(child: CircularProgressIndicator()),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
             ),
         ],
       ),
