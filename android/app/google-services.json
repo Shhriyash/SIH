@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "867503451116",
+    "firebase_url": "https://india-post-cfab4-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "india-post-cfab4",
+    "storage_bucket": "india-post-cfab4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:867503451116:android:8e72f4da2d3634de72eec9",
+        "android_client_info": {
+          "package_name": "com.dakmadad.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnVMs_kqa3BpzfYdfk_OGv-HoGj6myHS0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
