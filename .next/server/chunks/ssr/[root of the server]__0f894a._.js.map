@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 39, "column": 0}, "map": {"version":3,"sources":["file://C%3A/Users/takza/OneDrive/Desktop/Devlopment/React/daakmadaad/app/provider.js"],"sourcesContent":["'use client'\r\n\r\nimport { NextIntlClientProvider } from 'next-intl'\r\n\r\nexport function Providers({ locale, messages, children }) {\r\n  return (\r\n    <NextIntlClientProvider locale={locale} messages={messages}>\r\n      {children}\r\n    </NextIntlClientProvider>\r\n  )\r\n}"],"names":[],"mappings":";;;;AAEA;AAFA;;;AAIO,SAAS,UAAU,EAAE,MAAM,EAAE,QAAQ,EAAE,QAAQ,EAAE;IACtD,qBACE,8OAAC,gKAAA,CAAA,yBAAsB;QAAC,QAAQ;QAAQ,UAAU;kBAC/C;;;;;;AAGP"}},
+    {"offset": {"line": 58, "column": 0}, "map": {"version":3,"sources":[],"names":[],"mappings":"A"}}]
+}
