@@ -1,3 +1,5 @@
+// lib/main.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -8,10 +10,13 @@ import 'package:http_parser/http_parser.dart'; // For MediaType
 import 'package:path/path.dart' as Path;
 import 'package:path_provider/path_provider.dart' as PathProvider;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'settings_page.dart'; // Import the Settings Page
+
 class EdgeDetectionPage extends StatefulWidget {
-  const EdgeDetectionPage({Key? key}) : super(key: key);
+  const EdgeDetectionPage({super.key});
 
   @override
   _EdgeDetectionPageState createState() => _EdgeDetectionPageState();
@@ -27,7 +32,50 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
   bool _captureRearImage = false;
 
   final Uuid uuid = const Uuid();
+  final TextEditingController _apiController = TextEditingController();
+  final String _apiPrefKey = 'api_endpoint';
 
+  @override
+  void initState() {
+    super.initState();
+    _loadApiEndpoint();
+  }
+
+  @override
+  void dispose() {
+    _apiController.dispose();
+    super.dispose();
+  }
+
+  // Load the API endpoint from SharedPreferences
+  Future<void> _loadApiEndpoint() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _apiController.text = prefs.getString(_apiPrefKey) ??
+          'https://d7fe-137-97-168-146.ngrok-free.app/upload'; // Update this to your static endpoint
+    });
+  }
+
+  // Save the API endpoint to SharedPreferences
+  Future<void> _saveApiEndpoint(String api) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_apiPrefKey, api);
+  }
+
+  // Navigate to the Settings Page
+  Future<void> _navigateToSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            SettingsPage(currentEndpoint: _apiController.text),
+      ),
+    );
+
+    // Reload the API endpoint after returning from settings
+    _loadApiEndpoint();
+  }
+
+  // Upload photos to the server
   Future<void> _uploadPhotos() async {
     setState(() {
       _isProcessing = true;
@@ -43,7 +91,16 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
       return;
     }
 
-    var uri = Uri.parse('https://0177-106-222-216-90.ngrok-free.app/upload');
+    String apiEndpoint = _apiController.text.trim();
+    if (apiEndpoint.isEmpty) {
+      setState(() {
+        _mapError = "API endpoint is empty.";
+        _isProcessing = false;
+      });
+      return;
+    }
+
+    var uri = Uri.parse(apiEndpoint);
     var request = http.MultipartRequest('POST', uri);
 
     try {
@@ -55,7 +112,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
         }
 
         var image1 = await http.MultipartFile.fromPath(
-          'photo1', // Ensure this matches server's expected field name
+          'photo1', // Must match server's expected field name
           _frontImagePath!,
           contentType: MediaType('image', 'jpeg'),
         );
@@ -63,15 +120,15 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
         request.fields['id1'] = '1';
       }
 
-      // Add rear image
-      if (_rearImagePath != null) {
+      // Add rear image if capturing is enabled and rear image exists
+      if (_captureRearImage && _rearImagePath != null) {
         File rearFile = File(_rearImagePath!);
         if (!await rearFile.exists()) {
           throw Exception("Rear image file does not exist.");
         }
 
         var image2 = await http.MultipartFile.fromPath(
-          'photo2', // Ensure this matches server's expected field name
+          'photo2', // Must match server's expected field name
           _rearImagePath!,
           contentType: MediaType('image', 'jpeg'),
         );
@@ -115,6 +172,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     }
   }
 
+  // Process the captured image (Generate UUID and update UI)
   Future<void> processImage(String imagePath, String label) async {
     try {
       // Generate UUID for file name
@@ -139,6 +197,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     }
   }
 
+  // Capture image from camera using Edge Detection
   Future<void> getImageFromCamera(String label) async {
     setState(() {
       _isProcessing = true;
@@ -161,7 +220,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     // Generate file path
     String imagePath = Path.join(
       (await PathProvider.getTemporaryDirectory()).path,
-      "${DateTime.now().millisecondsSinceEpoch}_$label.jpeg",
+      "${DateTime.now().millisecondsSinceEpoch}_$label.jpg",
     );
 
     try {
@@ -190,6 +249,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     }
   }
 
+  // Build UI card to display captured images and UUIDs
   Widget buildImageCard(String label, String? imagePath, String? imageUuid) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 10),
@@ -230,6 +290,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     );
   }
 
+  // Build UI card to display errors
   Widget buildErrorCard(String errorMessage) {
     return Card(
       color: Colors.red[100],
@@ -254,6 +315,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
     );
   }
 
+  // Build a generic action button
   Widget buildActionButton(
       String label, VoidCallback onPressed, IconData icon) {
     return ElevatedButton.icon(
@@ -266,6 +328,79 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
       ),
     );
   }
+
+  // Build the API Endpoint Text Field (optional, since we're moving it to settings)
+  // This can be removed if you prefer all endpoint configurations in settings
+  /*
+  Widget buildApiEndpointField() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'API Endpoint',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _apiController,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                hintText: 'Enter API endpoint URL',
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.save),
+                  onPressed: () {
+                    String api = _apiController.text.trim();
+                    if (api.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('API endpoint cannot be empty.')),
+                      );
+                      return;
+                    }
+                    _saveApiEndpoint(api);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('API endpoint saved.')),
+                    );
+                  },
+                ),
+              ),
+              keyboardType: TextInputType.url,
+              onSubmitted: (value) {
+                String api = value.trim();
+                if (api.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('API endpoint cannot be empty.')),
+                  );
+                  return;
+                }
+                _saveApiEndpoint(api);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('API endpoint saved.')),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            TextButton.icon(
+              onPressed: _showApiInputDialog,
+              icon: const Icon(Icons.link, size: 20),
+              label: const Text(
+                'Change API Endpoint',
+                style: TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -281,7 +416,13 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
         centerTitle: true,
         backgroundColor: theme.primaryColor,
         elevation: 0,
-        actions: [],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _navigateToSettings,
+            tooltip: 'Change API Endpoint',
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -292,6 +433,9 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
+                    // Optionally, remove this if you don't want the API field on the main page
+                    // buildApiEndpointField(),
+                    const SizedBox(height: 20),
                     // Toggle for capturing rear image
                     Card(
                       elevation: 2,
@@ -319,12 +463,14 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
+                    // Scan Front Object Button
                     buildActionButton(
                       'Scan Front Object',
                       _isProcessing ? () {} : () => getImageFromCamera('front'),
                       Icons.camera,
                     ),
                     const SizedBox(height: 20),
+                    // Scan Rear Object Button (conditionally visible)
                     if (_captureRearImage)
                       buildActionButton(
                         'Scan Rear Object',
@@ -335,13 +481,14 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
                       ),
                     const SizedBox(height: 20),
 
-                    // Display images and UUIDs
+                    // Display captured front image and UUID
                     if (_frontImagePath != null)
                       buildImageCard('Front', _frontImagePath, _frontUuid),
+                    // Display captured rear image and UUID (if applicable)
                     if (_captureRearImage && _rearImagePath != null)
                       buildImageCard('Rear', _rearImagePath, _rearUuid),
 
-                    // Upload Button
+                    // Upload Images Button
                     if (isUploadEnabled)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 20),
@@ -352,13 +499,14 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
                         ),
                       ),
 
-                    // Display errors
+                    // Display error messages
                     if (_mapError != null) buildErrorCard(_mapError!),
                   ],
                 ),
               ),
             ),
           ),
+          // Loading indicator overlay
           if (_isProcessing)
             Container(
               color: Colors.black54,

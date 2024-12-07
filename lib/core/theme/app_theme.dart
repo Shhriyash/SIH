@@ -61,10 +61,11 @@ class AppTheme {
         textStyle: GoogleFonts.montserrat(
           fontSize: 16,
           fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
       ),
     ),
-    floatingActionButtonTheme: FloatingActionButtonThemeData(
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.primaryRed,
       foregroundColor: AppColors.white,
     ),
@@ -116,7 +117,7 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(
+        borderSide: const BorderSide(
           color: AppColors.primaryRed,
           width: 2.0,
         ),
@@ -132,7 +133,7 @@ class AppTheme {
         ),
       ),
     ),
-    floatingActionButtonTheme: FloatingActionButtonThemeData(
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.primaryRed,
       foregroundColor: Colors.black,
     ),

@@ -1,5 +1,5 @@
 import 'package:dakmadad/core/theme/app_theme.dart';
-import 'package:dakmadad/features/auth/presentation/screens/start_screen.dart';
+import 'package:dakmadad/features/auth/presentation/screens/splash_screen.dart';
 import 'package:dakmadad/firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeNotifier.themeMode,
-            home: const StartScreen(),
+            home: const SplashScreen  (),
           );
         },
       ),

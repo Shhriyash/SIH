@@ -11,7 +11,6 @@ class GetStartedButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Container(
       width: double.infinity,
       height: 56,
@@ -25,15 +24,25 @@ class GetStartedButton extends StatelessWidget {
       ),
       child: ElevatedButton(
         onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          elevation: 0, // Remove elevation
+          backgroundColor: Colors.transparent, // Make background transparent
+          shadowColor: Colors.transparent, // Remove shadow
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(8), // Match Container's borderRadius
+          ),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
               "Get started",
               style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white),
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 8),
             _buildForwardArrowIcon(),

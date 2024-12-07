@@ -1,3 +1,5 @@
+AIzaSyCKaombiYOuj6morYry2-Ff2RqL3Q0E1sI
+
 // lib/features/routeoptimization/optimized_route_page.dart
 
 import 'dart:async';
@@ -5,18 +7,20 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:dakmadad/features/routeoptimization/waypoint_adder.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
 import 'package:http/http.dart' as http;
+
 import 'models/waypoint.dart';
 import 'helpers/polyline_decoder.dart';
 import 'waypoint_manager.dart';
+// Adjust the import according to your project structure
 
 class OptimizedRoutePage extends StatefulWidget {
-  const OptimizedRoutePage({super.key});
-
-  @override 
+  @override
   _OptimizedRoutePageState createState() => _OptimizedRoutePageState();
 }
 
@@ -33,11 +37,20 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
   bool _isNavigating = false;
 
   // For continuous location updates
-  final Location _location = Location();
+  Location _location = Location();
   StreamSubscription<LocationData>? _locationSubscription;
 
-  // Initialize waypoints as an empty list
-  List<Waypoint> _waypoints = [];
+  // Initialize waypoints with some default values
+  List<Waypoint> _waypoints = [
+    Waypoint(coordinate: '22.700943,75.868036', name: 'Lal Bagh Palace'),
+    Waypoint(coordinate: '22.729671,75.919956', name: 'Khajrana Ganesh Temple'),
+    Waypoint(coordinate: '22.719364,75.857725', name: 'Sarafa Bazaar'),
+    Waypoint(coordinate: '22.717960,75.880030', name: 'Indore Museum'),
+    Waypoint(coordinate: '22.716678,75.853856', name: 'Krishnapura Chhatris'),
+    Waypoint(coordinate: '22.591942,75.729015', name: 'Patalpani Waterfall'),
+    Waypoint(coordinate: '22.698823,75.798398', name: 'Bijasen Tekri'),
+    Waypoint(coordinate: '22.695670,75.868534', name: 'Annapurna Temple'),
+  ];
 
   int _currentStepIndex = 0;
   bool _isLoopedRoute = false; // Add this variable
@@ -68,31 +81,31 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
   }
 
   Future<LocationData?> _getCurrentLocation() async {
-    bool serviceEnabled;
-    PermissionStatus permissionGranted;
+    bool _serviceEnabled;
+    PermissionStatus _permissionGranted;
 
     // Check if location service is enabled
-    serviceEnabled = await _location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await _location.requestService();
-      if (!serviceEnabled) {
+    _serviceEnabled = await _location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await _location.requestService();
+      if (!_serviceEnabled) {
         return null; // Return null if the service is not enabled
       }
     }
 
     // Check for permissions
-    permissionGranted = await _location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied ||
-        permissionGranted == PermissionStatus.deniedForever) {
-      permissionGranted = await _location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
+    _permissionGranted = await _location.hasPermission();
+    if (_permissionGranted == PermissionStatus.denied ||
+        _permissionGranted == PermissionStatus.deniedForever) {
+      _permissionGranted = await _location.requestPermission();
+      if (_permissionGranted != PermissionStatus.granted) {
         return null; // Return null if permission is not granted
       }
     }
 
     // Get location data
-    LocationData locationData = await _location.getLocation();
-    return locationData;
+    LocationData _locationData = await _location.getLocation();
+    return _locationData;
   }
 
   Future<void> _getOptimizedRoute() async {
@@ -120,18 +133,7 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
     }
 
     String apiKey =
-        'AIzaSyCKaombiYOuj6morYry2-Ff2RqL3Q0E1sI'; // Securely fetched API key
-
-    if (apiKey.isEmpty) {
-      print('Google Maps API Key is not set.');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Google Maps API Key is not set.')),
-      );
-      setState(() {
-        _isLoadingRoute = false;
-      });
-      return;
-    }
+        'AIzaSyCKaombiYOuj6morYry2-Ff2RqL3Q0E1sI'; // Replace with your actual API key
 
     String url;
     if (_waypoints.isEmpty) {
@@ -141,7 +143,7 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
           '&key=$apiKey';
     } else {
       String waypointsString =
-          'optimize:true|${_waypoints.map((w) => w.coordinate).join('|')}';
+          'optimize:true|' + _waypoints.map((w) => w.coordinate).join('|');
       url = 'https://maps.googleapis.com/maps/api/directions/json'
           '?origin=$origin'
           '&destination=$destination'
@@ -241,21 +243,11 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
         _navigationInstructions = instructions;
         _isLoadingRoute = false;
       });
-
-      // Move camera to the bounds of the route
-      if (points.isNotEmpty) {
-        _mapController.animateCamera(
-          CameraUpdate.newLatLngBounds(_boundsFromLatLngList(points), 50),
-        );
-      }
     } else {
       print('Error fetching directions: ${data['status']}');
       setState(() {
         _isLoadingRoute = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error fetching directions: ${data['status']}')),
-      );
     }
   }
 
@@ -344,11 +336,6 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
       setState(() {
         _currentStepIndex++;
       });
-      if (_currentStepIndex < _stepInstructions.length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_stepInstructions[_currentStepIndex - 1])),
-        );
-      }
     }
   }
 
@@ -411,25 +398,7 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
       const ImageConfiguration(
         size: Size(24, 24), // Adjust the size here
       ),
-      'assets/icons/car_icon.png', // Ensure this asset exists in pubspec.yaml
-    );
-  }
-
-  // Function to calculate LatLng bounds from a list of points
-  LatLngBounds _boundsFromLatLngList(List<LatLng> list) {
-    assert(list.isNotEmpty);
-    double x0, x1, y0, y1;
-    x0 = x1 = list[0].latitude;
-    y0 = y1 = list[0].longitude;
-    for (LatLng latLng in list) {
-      if (latLng.latitude > x1) x1 = latLng.latitude;
-      if (latLng.latitude < x0) x0 = latLng.latitude;
-      if (latLng.longitude > y1) y1 = latLng.longitude;
-      if (latLng.longitude < y0) y0 = latLng.longitude;
-    }
-    return LatLngBounds(
-      southwest: LatLng(x0, y0),
-      northeast: LatLng(x1, y1),
+      'assets/icons/car_icon.png', // Adjust the path accordingly
     );
   }
 
@@ -459,7 +428,25 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
               _getOptimizedRoute();
             },
           ),
-          // Removed the 'Add Waypoint' IconButton to prevent redundancy
+          IconButton(
+            icon: const Icon(Icons.add_location_alt),
+            onPressed: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => WaypointAdderPage(
+                    onWaypointsAdded: (waypoints) {
+                      setState(() {
+                        _waypoints.addAll(waypoints);
+                      });
+                      _getOptimizedRoute();
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+          // ... other actions if any
         ],
       ),
       drawer: WaypointManager(
@@ -536,7 +523,6 @@ class _OptimizedRoutePageState extends State<OptimizedRoutePage> {
           ),
         ],
       ),
-      // Removed FloatingActionButton to eliminate redundancy
     );
   }
 }
