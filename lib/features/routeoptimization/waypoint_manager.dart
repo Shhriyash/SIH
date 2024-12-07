@@ -1,32 +1,14 @@
-// lib/features/routeoptimization/waypoint_manager.dart
+// lib/features/routeoptimization/waypoint_manager_page.dart
 
+import 'package:dakmadad/features/routeoptimization/helpers/waypoint_provider.dart';
+import 'package:dakmadad/features/routeoptimization/models/waypoint.dart';
 import 'package:dakmadad/features/routeoptimization/waypoint_adder.dart';
 import 'package:flutter/material.dart';
-import 'models/waypoint.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 
-class WaypointManager extends StatefulWidget {
-  final List<Waypoint> waypoints;
-  final Function(List<Waypoint>) onWaypointsChanged;
 
-  const WaypointManager({
-    super.key,
-    required this.waypoints,
-    required this.onWaypointsChanged,
-  });
-
-  @override
-  _WaypointManagerState createState() => _WaypointManagerState();
-}
-
-class _WaypointManagerState extends State<WaypointManager> {
-  late List<Waypoint> _waypoints;
-
-  @override
-  void initState() {
-    super.initState();
-    _waypoints = List.from(widget.waypoints);
-  }
+class WaypointManagerPage extends StatelessWidget {
+  const WaypointManagerPage({super.key});
 
   // Validation for coordinates
   bool _validateCoordinate(String coordinate) {
@@ -37,45 +19,47 @@ class _WaypointManagerState extends State<WaypointManager> {
     double? lng = double.tryParse(parts[1].trim());
 
     if (lat == null || lng == null) return false;
-
     if (lat < -90 || lat > 90) return false;
     if (lng < -180 || lng > 180) return false;
 
     return true;
   }
 
-  // Common dialog for Add/Edit
-  Future<Waypoint?> _showWaypointDialog(
-      {Waypoint? waypoint, int? index}) async {
+  // Dialog for Editing Waypoint
+  Future<void> _showWaypointDialog({
+    required BuildContext context,
+    required Waypoint waypoint,
+    required int index,
+  }) async {
     final TextEditingController nameController =
-        TextEditingController(text: waypoint?.name ?? '');
+        TextEditingController(text: waypoint.name);
     final TextEditingController coordinateController =
-        TextEditingController(text: waypoint?.coordinate ?? '');
-    final TextEditingController postIdController =
-        TextEditingController(text: waypoint?.postId ?? '');
+        TextEditingController(text: waypoint.coordinate);
 
-    return showDialog<Waypoint>(
+    await showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(waypoint == null ? 'Add Waypoint' : 'Edit Waypoint'),
+          title: const Text('Edit Waypoint'),
           content: SingleChildScrollView(
             child: Column(
               children: [
                 TextField(
                   controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Name'),
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
+                const SizedBox(height: 10),
                 TextField(
                   controller: coordinateController,
-                  decoration:
-                      const InputDecoration(labelText: 'Coordinate (lat,lng)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Coordinate (lat,lng)',
+                    border: OutlineInputBorder(),
+                  ),
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                ),
-                TextField(
-                  controller: postIdController,
-                  decoration: const InputDecoration(labelText: 'Post ID'),
                 ),
               ],
             ),
@@ -85,15 +69,13 @@ class _WaypointManagerState extends State<WaypointManager> {
               child: const Text('Cancel'),
               onPressed: () => Navigator.pop(context),
             ),
-            TextButton(
-              child: Text(waypoint == null ? 'Add' : 'Save'),
-              onPressed: () {
+            ElevatedButton(
+              child: const Text('Save'),
+              onPressed: () async {
                 if (nameController.text.isNotEmpty &&
-                    coordinateController.text.isNotEmpty &&
-                    postIdController.text.isNotEmpty) {
+                    coordinateController.text.isNotEmpty) {
                   String name = nameController.text.trim();
                   String coordinate = coordinateController.text.trim();
-                  String postId = postIdController.text.trim();
 
                   if (!_validateCoordinate(coordinate)) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -104,13 +86,22 @@ class _WaypointManagerState extends State<WaypointManager> {
                     return;
                   }
 
-                  Waypoint newWaypoint = Waypoint(
+                  Waypoint updatedWaypoint = Waypoint(
                     name: name,
                     coordinate: coordinate,
-                    postId: postId,
+                    postId: waypoint.postId,
+                    isDelivered: waypoint.isDelivered,
                   );
 
-                  Navigator.pop(context, newWaypoint);
+                  // Update via Provider
+                  await Provider.of<WaypointProvider>(context, listen: false)
+                      .updateWaypoint(updatedWaypoint);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Waypoint updated successfully.')),
+                  );
+
+                  Navigator.pop(context);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Please fill in all fields')),
@@ -124,59 +115,28 @@ class _WaypointManagerState extends State<WaypointManager> {
     );
   }
 
-  // Add Waypoint
-  void _addWaypoint() async {
-    // Navigate to WaypointAdderPage and wait for the result
-    List<Waypoint>? newWaypoints = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => WaypointAdderPage(),
-      ),
-    );
-
-    if (newWaypoints != null && newWaypoints.isNotEmpty) {
-      setState(() {
-        _waypoints.addAll(newWaypoints);
-      });
-      widget.onWaypointsChanged(_waypoints);
-    }
-  }
-
-  // Edit Waypoint
-  void _editWaypoint(int index) async {
-    Waypoint? updatedWaypoint =
-        await _showWaypointDialog(waypoint: _waypoints[index], index: index);
-
-    if (updatedWaypoint != null) {
-      setState(() {
-        _waypoints[index] = updatedWaypoint;
-      });
-
-      widget.onWaypointsChanged(_waypoints);
-
-      // Update Firebase
-      await _updateFirebaseDeliveryStatus(updatedWaypoint);
-    }
-  }
-
   // Remove Waypoint
-  void _removeWaypoint(int index) async {
-    Waypoint waypoint = _waypoints[index];
+  Future<void> _removeWaypoint(BuildContext context, int index) async {
+    Waypoint waypoint =
+        Provider.of<WaypointProvider>(context, listen: false).waypoints[index];
 
-    // Confirm deletion
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Delete Waypoint'),
-          content: const Text('Are you sure you want to delete this waypoint?'),
+          title: const Text('Remove Waypoint'),
+          content: const Text(
+              'Are you sure you want to remove this waypoint from the list?'),
           actions: [
             TextButton(
               child: const Text('Cancel'),
               onPressed: () => Navigator.pop(context, false),
             ),
-            TextButton(
-              child: const Text('Delete'),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Remove'),
               onPressed: () => Navigator.pop(context, true),
             ),
           ],
@@ -185,125 +145,232 @@ class _WaypointManagerState extends State<WaypointManager> {
     );
 
     if (confirm == true) {
-      setState(() {
-        _waypoints.removeAt(index);
-      });
-      widget.onWaypointsChanged(_waypoints);
-
-      // Remove from Firebase
-      await _removeWaypointFromFirebase(waypoint);
+      try {
+        await Provider.of<WaypointProvider>(context, listen: false)
+            .removeWaypoint(waypoint.postId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Waypoint removed successfully.')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove waypoint: $e')),
+        );
+      }
     }
   }
 
-  // Update Firebase Delivery Status
-  Future<void> _updateFirebaseDeliveryStatus(Waypoint waypoint) async {
+  // Mark as Delivered
+  Future<void> _markAsDelivered(BuildContext context, int index) async {
+    Waypoint waypoint =
+        Provider.of<WaypointProvider>(context, listen: false).waypoints[index];
     try {
-      DocumentReference docRef = FirebaseFirestore.instance
-          .collection('deliveries')
-          .doc(waypoint.postId);
-
-      await docRef.set(
-        {
-          'name': waypoint.name,
-          'location': {
-            'latitude': double.parse(waypoint.coordinate.split(',')[0]),
-            'longitude': double.parse(waypoint.coordinate.split(',')[1]),
-          },
-          'status': 'Delivered', // Adjust as necessary
-          'updated_at': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true), // Use merge to update existing fields
-      );
-
-      print('Delivery status updated for post_id: ${waypoint.postId}');
-    } catch (e) {
-      print('Error updating delivery status: $e');
+      await Provider.of<WaypointProvider>(context, listen: false)
+          .markAsDelivered(waypoint.postId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update delivery status.')),
+        const SnackBar(content: Text('Waypoint marked as delivered.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to mark as delivered: $e')),
       );
     }
   }
 
-  // Remove Waypoint from Firebase
-  Future<void> _removeWaypointFromFirebase(Waypoint waypoint) async {
-    try {
-      DocumentReference docRef = FirebaseFirestore.instance
-          .collection('deliveries')
-          .doc(waypoint.postId);
+  // Reset Waypoints
+  Future<void> _resetWaypoints(BuildContext context) async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reset Waypoints'),
+          content: const Text(
+              'Are you sure you want to reset the waypoint list? This will remove all waypoints.'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(context, false),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Reset'),
+              onPressed: () => Navigator.pop(context, true),
+            ),
+          ],
+        );
+      },
+    );
 
-      await docRef.delete();
-
-      print('Delivery record deleted for post_id: ${waypoint.postId}');
-    } catch (e) {
-      print('Error deleting delivery record: $e');
+    if (confirm == true) {
+      await Provider.of<WaypointProvider>(context, listen: false)
+          .resetWaypoints();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete delivery record.')),
+        const SnackBar(content: Text('Waypoint list has been reset.')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Drawer(
-      child: Column(
-        children: [
-          AppBar(
-            title: const Text('Manage Waypoints'),
-            automaticallyImplyLeading: false, // Removes the default back button
-          ),
-          Expanded(
-            child: _waypoints.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No waypoints added.',
-                      style: TextStyle(fontSize: 18),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _waypoints.length,
-                    itemBuilder: (context, index) {
-                      final waypoint = _waypoints[index];
-                      var coordinates = waypoint.coordinate.split(',');
-                      String latitude = coordinates[0];
-                      String longitude = coordinates[1];
-                      return ListTile(
-                        title: Text(waypoint.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Lat: $latitude, Lng: $longitude'),
-                            Text('Post ID: ${waypoint.postId}'),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _editWaypoint(index),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => _removeWaypoint(index),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: FloatingActionButton.extended(
-              onPressed: _addWaypoint,
-              tooltip: 'Add Waypoint',
-              icon: const Icon(Icons.add),
-              label: const Text('Add Waypoint'),
-            ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Manage Waypoints'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset List',
+            onPressed: () => _resetWaypoints(context),
           ),
         ],
       ),
+      body: Consumer<WaypointProvider>(
+        builder: (context, waypointProvider, child) {
+          if (waypointProvider.waypoints.isEmpty) {
+            return const Center(
+              child: Text(
+                'No waypoints added.',
+                style: TextStyle(fontSize: 18),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            itemCount: waypointProvider.waypoints.length,
+            itemBuilder: (context, index) {
+              final waypoint = waypointProvider.waypoints[index];
+              var coordinates = waypoint.coordinate.split(',');
+              String latitude = coordinates[0];
+              String longitude = coordinates[1];
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Card(
+                  elevation: 3,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Waypoint Header
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${index + 1}. ${waypoint.name}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (waypoint.isDelivered)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius:
+                                      BorderRadius.circular(12),
+                                ),
+                                child: const Text(
+                                  'Delivered',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Coordinates
+                        Text(
+                          'Latitude: $latitude\nLongitude: $longitude',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge,
+                        ),
+                        const SizedBox(height: 8),
+                        // Post ID
+                        Text(
+                          'Post ID: ${waypoint.postId}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium,
+                        ),
+                        const SizedBox(height: 12),
+                        // Action Buttons
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Edit Button
+                            ElevatedButton.icon(
+                              onPressed: () => _showWaypointDialog(
+                                  context: context,
+                                  waypoint: waypoint,
+                                  index: index),
+                              icon: const Icon(Icons.edit),
+                              label: const Text('Edit'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    Theme.of(context).primaryColor,
+                              ),
+                            ),
+                            // Delete Button
+                            ElevatedButton.icon(
+                              onPressed: () => _removeWaypoint(context, index),
+                              icon: const Icon(Icons.delete),
+                              label: const Text('Delete'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                            ),
+                            // Mark as Delivered Button
+                            ElevatedButton.icon(
+                              onPressed: waypoint.isDelivered
+                                  ? null
+                                  : () => _markAsDelivered(context, index),
+                              icon: const Icon(Icons.check),
+                              label: const Text('Mark as Delivered'),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.black,
+                                backgroundColor: Colors.yellow,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          // Navigate to WaypointAdderPage
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WaypointAdderPage(),
+            ),
+          );
+          // No need to handle the result as Provider updates automatically
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Add Waypoint'),
+        tooltip: 'Add Waypoint',
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

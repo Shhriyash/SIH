@@ -1,14 +1,15 @@
-// lib/pages/waypoint_adder_page.dart
+// lib/features/routeoptimization/waypoint_adder_page.dart
 
+import 'package:dakmadad/features/routeoptimization/helpers/waypoint_provider.dart';
 import 'package:dakmadad/features/routeoptimization/models/waypoint.dart';
-import 'package:dakmadad/features/routeoptimization/services/firestore_service.dart';
 import 'package:dakmadad/features/routeoptimization/services/qr_parser.dart';
-import 'package:dakmadad/features/routeoptimization/widgets/waypoint_list.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class WaypointAdderPage extends StatefulWidget {
-  const WaypointAdderPage({Key? key}) : super(key: key);
+  const WaypointAdderPage({super.key});
 
   @override
   _WaypointAdderPageState createState() => _WaypointAdderPageState();
@@ -17,10 +18,7 @@ class WaypointAdderPage extends StatefulWidget {
 class _WaypointAdderPageState extends State<WaypointAdderPage> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? controller;
-  List<Waypoint> scannedWaypoints = [];
   bool isScanning = false;
-
-  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void dispose() {
@@ -32,10 +30,10 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
     setState(() {
       isScanning = true;
     });
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return Scaffold(
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
           appBar: AppBar(
             title: const Text('Scan QR Code'),
           ),
@@ -43,8 +41,8 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
             key: qrKey,
             onQRViewCreated: _onQRViewCreated,
           ),
-        );
-      },
+        ),
+      ),
     );
     setState(() {
       isScanning = false;
@@ -59,25 +57,28 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
 
       print('Scanned QR Code Data: $qrCodeData');
 
-      // Inside _onQRViewCreated
-
       try {
-        // Parse QR code data using isolate
+        // Parse QR code data using the custom QRParser
         Waypoint waypoint = await QRParser.parseQRCodeIsolate(qrCodeData);
 
-        setState(() {
-          scannedWaypoints.add(waypoint);
-        });
-
-        // Update Firebase
-        await _firestoreService.updateDeliveryStatus(
-          waypoint.postId,
-          waypoint.name, // Assuming 'name' is the post office name
+        // Generate a unique postId using Firestore auto ID
+        DocumentReference docRef =
+            FirebaseFirestore.instance.collection('post_details').doc();
+        Waypoint newWaypoint = Waypoint(
+          name: waypoint.name,
+          coordinate: waypoint.coordinate,
+          postId: docRef.id,
         );
+
+        // Add to Provider
+        await Provider.of<WaypointProvider>(context, listen: false)
+            .addWaypoint(newWaypoint);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Waypoint added successfully.')),
         );
+
+        Navigator.pop(context);
       } catch (e) {
         print('Error parsing QR code data: $e');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,27 +86,15 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
             content: Text('Failed to parse QR code: ${e.toString()}'),
           ),
         );
+        controller?.resumeCamera();
       }
-
-      await Future.delayed(const Duration(seconds: 1));
-      controller?.resumeCamera();
     });
   }
 
-  Future<void> _updateFirebaseDeliveryStatus(
-      String postId, String postOfficeName) async {
-    try {
-      await _firestoreService.updateDeliveryStatus(postId, postOfficeName);
-    } catch (e) {
-      // Error is already handled in FirestoreService
-    }
-  }
-
   void _addWaypointManually() {
-    final TextEditingController addressController = TextEditingController();
+    final TextEditingController nameController = TextEditingController();
     final TextEditingController latController = TextEditingController();
     final TextEditingController lngController = TextEditingController();
-    final TextEditingController postIdController = TextEditingController();
 
     showDialog(
       context: context,
@@ -116,22 +105,31 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
             child: Column(
               children: [
                 TextField(
-                  controller: addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
+                const SizedBox(height: 10),
                 TextField(
                   controller: latController,
-                  decoration: const InputDecoration(labelText: 'Latitude'),
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Latitude',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                 ),
+                const SizedBox(height: 10),
                 TextField(
                   controller: lngController,
-                  decoration: const InputDecoration(labelText: 'Longitude'),
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                ),
-                TextField(
-                  controller: postIdController,
-                  decoration: const InputDecoration(labelText: 'Post ID'),
+                  decoration: const InputDecoration(
+                    labelText: 'Longitude',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                 ),
               ],
             ),
@@ -141,37 +139,47 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
               child: const Text('Cancel'),
               onPressed: () => Navigator.pop(context),
             ),
-            TextButton(
+            ElevatedButton(
               child: const Text('Add'),
               onPressed: () async {
-                if (addressController.text.isNotEmpty &&
+                if (nameController.text.isNotEmpty &&
                     latController.text.isNotEmpty &&
-                    lngController.text.isNotEmpty &&
-                    postIdController.text.isNotEmpty) {
-                  String name = addressController.text.trim();
+                    lngController.text.isNotEmpty) {
+                  String name = nameController.text.trim();
                   String coordinate =
                       '${latController.text.trim()},${lngController.text.trim()}';
-                  String postId = postIdController.text.trim();
 
+                  // Validate coordinates
+                  List<String> parts = coordinate.split(',');
+                  if (parts.length != 2 ||
+                      double.tryParse(parts[0]) == null ||
+                      double.tryParse(parts[1]) == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Invalid coordinates. Please enter valid latitude and longitude.')),
+                    );
+                    return;
+                  }
+
+                  // Generate a unique postId using Firestore auto ID
+                  DocumentReference docRef = FirebaseFirestore.instance
+                      .collection('post_details')
+                      .doc();
                   Waypoint waypoint = Waypoint(
                     name: name,
                     coordinate: coordinate,
-                    postId: postId,
+                    postId: docRef.id,
                   );
 
-                  setState(() {
-                    scannedWaypoints.add(waypoint);
-                  });
+                  // Add to Provider
+                  await Provider.of<WaypointProvider>(context, listen: false)
+                      .addWaypoint(waypoint);
 
-                  try {
-                    await _firestoreService.updateDeliveryStatus(postId, name);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Waypoint added successfully.')),
-                    );
-                  } catch (e) {
-                    // Handle Firestore update error
-                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Waypoint added successfully.')),
+                  );
 
                   Navigator.pop(context);
                 } else {
@@ -187,16 +195,6 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
     );
   }
 
-  void _finishAddingWaypoints() {
-    Navigator.pop(context, scannedWaypoints); // Return the list of waypoints
-  }
-
-  void _removeWaypoint(int index) {
-    setState(() {
-      scannedWaypoints.removeAt(index);
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -205,45 +203,110 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
-            onPressed: _finishAddingWaypoints,
+            tooltip: 'Finish',
+            onPressed: () {
+              Navigator.pop(context);
+            },
           ),
         ],
       ),
       body: Column(
         children: [
+          // Existing Waypoints List
           Expanded(
-            child: scannedWaypoints.isEmpty
-                ? const Center(
+            flex: 2,
+            child: Consumer<WaypointProvider>(
+              builder: (context, waypointProvider, child) {
+                if (waypointProvider.waypoints.isEmpty) {
+                  return const Center(
                     child: Text(
-                      'No Waypoints Added',
+                      'No waypoints added.',
                       style:
-                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                  )
-                : WaypointList(
-                    waypoints: scannedWaypoints,
-                    onRemove: _removeWaypoint,
-                  ),
+                  );
+                }
+
+                return ListView.builder(
+                  itemCount: waypointProvider.waypoints.length,
+                  itemBuilder: (context, index) {
+                    final waypoint = waypointProvider.waypoints[index];
+                    var coordinates = waypoint.coordinate.split(',');
+                    String latitude = coordinates[0];
+                    String longitude = coordinates[1];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      child: Card(
+                        elevation: 3,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).primaryColor,
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          title: Text(waypoint.name),
+                          subtitle: Text('Lat: $latitude, Lng: $longitude'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Edit Button
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                color: Theme.of(context).primaryColor,
+                                onPressed: () {
+                                  // Navigate to Edit Functionality
+                                  // Alternatively, trigger a callback or function
+                                  // depending on your implementation
+                                },
+                              ),
+                              // Delete Button
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                color: Colors.red,
+                                onPressed: () {
+                                  // Navigate to Delete Functionality
+                                  // Alternatively, trigger a callback or function
+                                  // depending on your implementation
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
-          const SizedBox(height: 80), // Space for FABs
+          const Divider(),
+          // Add Waypoints Section
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton.extended(
             heroTag: 'qrScan',
-            onPressed: _startQRScan,
+            onPressed: isScanning ? null : _startQRScan,
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Scan QR'),
+            tooltip: 'Scan QR Code',
           ),
-          const SizedBox(width: 16),
+          const SizedBox(height: 16),
           FloatingActionButton.extended(
             heroTag: 'manualEntry',
             onPressed: _addWaypointManually,
             icon: const Icon(Icons.edit),
             label: const Text('Manual Entry'),
+            tooltip: 'Add Waypoint Manually',
           ),
         ],
       ),

@@ -1,11 +1,18 @@
 import 'package:dakmadad/features/auth/domain/services/auth_service.dart';
+import 'package:dakmadad/features/home/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'home_screen.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
-  const PhoneAuthScreen({super.key});
+  final void Function(Locale locale) onLanguageChange;
+  final void Function(ThemeMode mode) onThemeChange;
+
+  const PhoneAuthScreen({
+    super.key,
+    required this.onLanguageChange,
+    required this.onThemeChange,
+  });
 
   @override
   State<PhoneAuthScreen> createState() => _PhoneAuthScreenState();
@@ -17,6 +24,14 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   bool isOTPFieldVisible = false; // Controls OTP field visibility
   bool isLoading = false; // Controls loading state
 
+  @override
+  void dispose() {
+    phoneController.dispose();
+    otpController.dispose();
+    super.dispose();
+  }
+
+  /// Sends the OTP to the user's phone number.
   void _sendOTP(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
 
@@ -44,6 +59,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     }
   }
 
+  /// Verifies the OTP entered by the user.
   void _verifyOTP(BuildContext context) async {
     final authService = Provider.of<AuthService>(context, listen: false);
 
@@ -61,7 +77,13 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         const SnackBar(content: Text('Login successful!')),
       );
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(
+            
+            onThemeChange: widget.onThemeChange,
+            onLanguageChange: widget.onLanguageChange,
+          ),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

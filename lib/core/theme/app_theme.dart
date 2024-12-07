@@ -7,6 +7,17 @@ class AppTheme {
     useMaterial3: true,
     primaryColor: AppColors.primaryRed,
     scaffoldBackgroundColor: AppColors.white,
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.primaryRed,
+      foregroundColor: AppColors.white,
+      elevation: 0,
+      titleTextStyle: GoogleFonts.montserrat(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: AppColors.white,
+      ),
+      iconTheme: const IconThemeData(color: AppColors.white),
+    ),
     textTheme: GoogleFonts.montserratTextTheme().copyWith(
       displayLarge: GoogleFonts.montserrat(
         fontSize: 32,
@@ -49,8 +60,8 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(
-          color: Colors.grey[400]!,
+        borderSide: const BorderSide(
+          color: AppColors.primaryRed,
           width: 2.0,
         ),
       ),
@@ -58,10 +69,13 @@ class AppTheme {
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primaryRed,
+        foregroundColor: AppColors.white,
         textStyle: GoogleFonts.montserrat(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     ),
@@ -75,6 +89,17 @@ class AppTheme {
     useMaterial3: true,
     primaryColor: AppColors.primaryRed,
     scaffoldBackgroundColor: Colors.black,
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.primaryRed,
+      foregroundColor: AppColors.white,
+      elevation: 0,
+      titleTextStyle: GoogleFonts.montserrat(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: AppColors.white,
+      ),
+      iconTheme: const IconThemeData(color: AppColors.white),
+    ),
     textTheme: GoogleFonts.montserratTextTheme().copyWith(
       displayLarge: GoogleFonts.montserrat(
         fontSize: 32,
@@ -125,17 +150,20 @@ class AppTheme {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.deepOrange,
+        backgroundColor: AppColors.primaryRed,
+        foregroundColor: AppColors.white,
         textStyle: GoogleFonts.montserrat(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          color: Colors.white,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
       ),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: AppColors.primaryRed,
-      foregroundColor: Colors.black,
+      foregroundColor: AppColors.white,
     ),
   );
 }

@@ -1,10 +1,16 @@
-import 'package:dakmadad/core/theme/app_theme.dart';
-import 'package:dakmadad/features/auth/presentation/screens/splash_screen.dart';
+// lib/main.dart
+
+import 'package:dakmadad/features/routeoptimization/helpers/waypoint_provider.dart';
 import 'package:dakmadad/firebase_options.dart';
-import 'package:flutter/material.dart';
+import 'package:dakmadad/l10n/generated/S.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/domain/services/auth_service.dart';
+import 'features/auth/presentation/screens/splash_screen.dart';
+// Import WaypointProvider
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,15 +18,61 @@ void main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  Locale _locale = const Locale('en');
+  ThemeNotifier? _themeNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePreferences();
+  }
+
+  Future<void> _initializePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    final theme = prefs.getString('theme') ?? 'light';
+    final localeCode = prefs.getString('locale') ?? 'en';
+
+    setState(() {
+      _themeNotifier = ThemeNotifier(
+        themeMode: theme == 'dark' ? ThemeMode.dark : ThemeMode.light,
+      );
+      _locale = Locale(localeCode);
+    });
+  }
+
+  void _changeLanguage(Locale locale) async {
+    setState(() {
+      _locale = locale;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('locale', locale.languageCode);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_themeNotifier == null) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => ThemeNotifier()),
+        ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
+        ChangeNotifierProvider<ThemeNotifier>(create: (_) => _themeNotifier!),
+        ChangeNotifierProvider<WaypointProvider>(
+            create: (_) => WaypointProvider()), // Added WaypointProvider
       ],
       child: Consumer<ThemeNotifier>(
         builder: (context, themeNotifier, child) {
@@ -29,7 +81,16 @@ class MyApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeNotifier.themeMode,
-            home: const SplashScreen  (),
+            locale: _locale,
+            localizationsDelegates: S.localizationsDelegates,
+            supportedLocales: S.supportedLocales,
+            // The SplashScreen handles all navigation logic
+            home: SplashScreen(
+              onLanguageChange: _changeLanguage,
+              onThemeChange: (ThemeMode mode) {
+                themeNotifier.setTheme(mode);
+              },
+            ),
           );
         },
       ),
@@ -38,13 +99,21 @@ class MyApp extends StatelessWidget {
 }
 
 class ThemeNotifier extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
+  ThemeMode _themeMode;
+
+  ThemeNotifier({ThemeMode themeMode = ThemeMode.light})
+      : _themeMode = themeMode;
 
   ThemeMode get themeMode => _themeMode;
 
-  void toggleTheme() {
-    _themeMode =
-        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+  void setTheme(ThemeMode mode) {
+    _themeMode = mode;
     notifyListeners();
+    _saveThemePreference(mode);
+  }
+
+  Future<void> _saveThemePreference(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('theme', mode == ThemeMode.dark ? 'dark' : 'light');
   }
 }

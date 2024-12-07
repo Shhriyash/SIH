@@ -1,18 +1,35 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   String? _verificationId;
 
   static const String isLoggedInKey = 'isLoggedIn';
+
+  // Stream of authentication state changes
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Get Current User
+  User? get currentUser => _auth.currentUser;
+
+  // Get User ID
+  String? getCurrentUserId() {
+    print('Fetching data for userId: ${_auth.currentUser?.uid}');
+    return _auth.currentUser?.uid;
+  }
 
   // Email and Password Login
   Future<String?> loginWithEmail(String email, String password) async {
     try {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-          email: email, password: password);
+        email: email,
+        password: password,
+      );
 
       // Save login state
       await _saveLoginState(true);
@@ -27,10 +44,19 @@ class AuthService with ChangeNotifier {
   }
 
   // Email and Password Registration
-  Future<String?> registerWithEmail(String email, String password) async {
+  Future<String?> registerWithEmail(String name, String email, String password) async {
     try {
-      UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(email: email, password: password);
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Save user data to Firestore
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'name': name,
+        'email': email,
+        // Add other fields as needed
+      });
 
       // Save login state
       await _saveLoginState(true);
@@ -50,13 +76,14 @@ class AuthService with ChangeNotifier {
       await _auth.verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (PhoneAuthCredential credential) async {
+          // Automatically sign in with the received credential
           await _auth.signInWithCredential(credential);
           await _saveLoginState(true);
-          notifyListeners(); // Notify listeners if login is completed automatically
+          notifyListeners();
         },
         verificationFailed: (FirebaseAuthException e) {
           // Handle verification failure
-          // Consider logging or notifying the user
+          // You can pass the error message to the UI via another method or a callback
         },
         codeSent: (String verificationId, int? resendToken) {
           _verificationId = verificationId;
@@ -83,15 +110,20 @@ class AuthService with ChangeNotifier {
         verificationId: _verificationId!,
         smsCode: otp,
       );
-      await _auth.signInWithCredential(credential);
+      UserCredential userCredential = await _auth.signInWithCredential(credential);
+
+      // Optionally, save user data to Firestore if needed
+      // This depends on your app's requirements
 
       // Save login state
       await _saveLoginState(true);
 
       notifyListeners(); // Notify listeners after successful login
       return null; // Success
+    } on FirebaseAuthException catch (e) {
+      return e.message; // Return error message
     } catch (e) {
-      return e.toString(); // Return error message
+      return 'An unexpected error occurred';
     }
   }
 
@@ -102,8 +134,21 @@ class AuthService with ChangeNotifier {
     notifyListeners(); // Notify listeners after signing out
   }
 
-  // Get Current User
-  User? get currentUser => _auth.currentUser;
+  // Fetch User Data
+  Future<Map<String, dynamic>?> fetchUserData() async {
+    try {
+      if (_auth.currentUser == null) return null;
+      DocumentSnapshot userDoc = await _firestore.collection('users').doc(_auth.currentUser!.uid).get();
+      if (userDoc.exists) {
+        return userDoc.data() as Map<String, dynamic>;
+      } else {
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching user data: $e');
+      return null;
+    }
+  }
 
   // Save login state to SharedPreferences
   Future<void> _saveLoginState(bool isLoggedIn) async {

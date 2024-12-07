@@ -1,11 +1,19 @@
-import 'package:dakmadad/features/auth/presentation/screens/start_screen.dart';
+import 'package:dakmadad/features/home/home_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-import 'home_screen.dart';
+import 'package:dakmadad/features/auth/presentation/screens/start_screen.dart';
 import '../../domain/services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final void Function(Locale locale) onLanguageChange;
+  final void Function(ThemeMode themeMode) onThemeChange;
+
+  const SplashScreen({
+    super.key,
+    required this.onLanguageChange,
+    required this.onThemeChange,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -21,33 +29,38 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkLoginStatus();
   }
 
-  void _checkLoginStatus() async {
+  /// Checks if the user is logged in and navigates accordingly.
+  Future<void> _checkLoginStatus() async {
     bool isLoggedIn = await _authService.getLoginState();
     if (isLoggedIn && _authService.currentUser != null) {
       // Navigate to HomeScreen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(
+            onLanguageChange: widget.onLanguageChange,
+            onThemeChange: widget.onThemeChange,
+          ),
+        ),
       );
     } else {
-      // Navigate to LoginScreen
+      // Navigate to StartScreen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const StartScreen()),
+        MaterialPageRoute(
+          builder: (context) => StartScreen(
+            onLanguageChange: widget.onLanguageChange,
+            onThemeChange: widget.onThemeChange,
+          ),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Simple splash screen with a loader
     return Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(
-          valueColor:
-              AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
-        ),
-      ),
+      body: Center(child: Lottie.asset('assets/jsons/delivery_animation.json')),
     );
   }
 }
