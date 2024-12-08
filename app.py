@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 import os
 import subprocess
 import threading
+import json
+import os
+
 
 app = Flask(__name__)
 
@@ -10,13 +13,7 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Create the folder if it doesn't exist
 
 
-import subprocess
-import json
-import os
 
-import subprocess
-import json
-import os
 
 def process_photos(photos):
     """Background processing for the photos."""
@@ -35,18 +32,15 @@ def process_photos(photos):
                 check=True
             )
             output_combined = result_combined.stdout.strip()
-            #print(f"qr_generate.py output: {output_combined}")
             output['combined_output'] = output_combined
 
             # Extract post_id from the last line of the output
             try:
-                # Split the output by newline and take the last line
                 lines = output_combined.split('\n')
-                last_line = lines[-1].strip()  # Clean up any extra spaces/newlines
-                
+                last_line = lines[-1].strip()
+
                 print(f"Last line extracted: {last_line}")
 
-                # Check if the last line is valid JSON
                 if last_line.startswith("{") and last_line.endswith("}"):
                     result_data = json.loads(last_line)
                     post_id = result_data.get("post_id")
@@ -77,10 +71,29 @@ def process_photos(photos):
             except subprocess.CalledProcessError as e:
                 print(f"Error executing Server.py: {e.stderr}")
 
-        #print(f"Photo processing completed with output: {output}")
+        # Execute message.py with post_id and message
+        if post_id:
+            message_script_path = os.path.abspath("message.py")
+            message = "Processing completed for photos"  # Example message
+            print(f"Executing message.py with post_id={post_id} and message='{message}'")
+            try:
+                result_message = subprocess.run(
+                    ["python", message_script_path, str(post_id), message],
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
+                output_message = result_message.stdout.strip()
+                print(f"message.py output: {output_message}")
+                output['message_output'] = output_message
+            except subprocess.CalledProcessError as e:
+                print(f"Error executing message.py: {e.stderr}")
+
+        print(f"Photo processing completed with output: {output}")
 
     except Exception as e:
         print(f"Error in background processing: {e}")
+
 
 
 

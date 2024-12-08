@@ -210,38 +210,41 @@ def upload_to_firestore(post_id, data):
     except Exception as e:
         print(f"Error uploading data to Firestore: {e}")
         
-def generate_qr_code(data, pincode, nearest_post_office, output_path="qr_code.png"):
+
+
+def generate_qr_code(data, pincode=None, post_office_name=None, output_path="qr_code.png"):
     try:
-        # Generate the QR code
-        qr = qrcode.make(data)
+        folder_path = "QR"
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
         
-        # Prepare font settings
-        font_path = "conthrax\Conthrax-SemiBold.otf"  # Adjust based on your system
-        font_size = 18  # Adjust font size
+        qr = qrcode.make(data)
+        qr_image = qr.convert('RGB')
+        
+        margin_top = 50
+        width, height = qr_image.size
+        new_image = Image.new('RGB', (width, height + margin_top), (255, 255, 255))
+        new_image.paste(qr_image, (0, margin_top))
+        
+        draw = ImageDraw.Draw(new_image)
+        
         try:
-            font = ImageFont.truetype(font_path, font_size)
+            font = ImageFont.truetype("arial.ttf", 35)
         except IOError:
-            raise Exception("Font file not found. Adjust the font_path variable.")
-
-        # Create a new image with space for text above the QR code
-        qr_width, qr_height = qr.size
-        text_height = 60  # Space for text
-        canvas_height = qr_height + text_height
-        new_img = Image.new("RGB", (qr_width, canvas_height), "white")
-
-        # Draw text onto the canvas
-        draw = ImageDraw.Draw(new_img)
-        text = f"Pincode: {pincode}\nNearest Post Office: {nearest_post_office}"
-        text_x = 10  # Margin from left
-        text_y = 10  # Margin from top
-        draw.text((text_x, text_y), text, fill="black", font=font)
-
-        # Paste the QR code below the text
-        new_img.paste(qr, (0, text_height))
-
-        # Save the final image
-        new_img.save(output_path)
-        print(f"QR code with text generated and saved as {output_path}")
+            font = ImageFont.load_default()
+        
+        text = f"Pincode: {pincode}\nPost Office: {post_office_name}"
+        text_bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = text_bbox[2] - text_bbox[0]
+        text_x = (width - text_width) // 2  # Center text horizontally
+        text_y = 10
+        
+        draw.text((text_x, text_y), text, font=font, fill="black")
+        
+        output_path = os.path.join(folder_path, output_path)
+        new_image.save(output_path)
+        print(f"QR code generated and saved as {output_path}")
+    
     except Exception as e:
         print(f"Error generating QR code: {e}")
         
@@ -277,14 +280,19 @@ if __name__ == "__main__":
         geocoded_info = geocode_address(api_key, address)
         if "pincode" in geocoded_info:
             rpincode = geocoded_info["pincode"]
+        else :
+            rpincode = pincode    
             print("Pincode:", pincode)
         if "formattedAddress" in geocoded_info:
             raddress = geocoded_info["formattedAddress"]
-            print("formattedAddress:", raddress)   
-            
+            print("formattedAddress:", raddress)  
+        else :
+            raddress = address                  
+        print(rpincode, pincode, raddress, address)            
         nearest_post_office = find_nearest_post_office(api_key, rpincode, raddress)
         nearpo = nearest_post_office.get("name", "Unknown")
         nearpc = nearest_post_office.get("pincode", "Unknown")
+        print(nearest_post_office)
         # Generate unique post_id
         
         print(nearpo, nearpc)
