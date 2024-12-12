@@ -1,135 +1,238 @@
-from azure.core.credentials import AzureKeyCredential
-from azure.ai.formrecognizer import DocumentAnalysisClient, AnalysisFeature
+from flask import Flask, request, jsonify
 import os
-import re
+import subprocess
+import threading
 import json
-from azure.core.exceptions import HttpResponseError
-from groq import Groq
-import sys
-from firebase_admin import credentials, firestore, initialize_app
+import os
+import firebase_admin
+from firebase_admin import credentials, firestore
+from flask import Flask, jsonify, request, redirect
 
-# Azure OCR settings
-AZURE_ENDPOINT = "https://ocr-for-posts.cognitiveservices.azure.com/"
-AZURE_KEY = "G0011GMGd40PX2lNQTgVqJlUIwJvwq9Q1y5k7xEdEAPwsoE0i1yxJQQJ99AKACGhslBXJ3w3AAALACOG7tRL"
-
-# Groq API settings
-os.environ["Api"] = "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"
-GROQ_API_KEY = os.environ["Api"]
+# Initialize Firebase Admin SDK with service account credentials
+cred = credentials.Certificate("dakmadad-sih-firebase-adminsdk-pczek-6e05d2a574.json")
+firebase_admin.initialize_app(cred)
 
 # Initialize Firestore client
-cred = credentials.Certificate("dakmadad-sih-firebase-adminsdk-pczek-6e05d2a574.json")
-initialize_app(cred)
 db = firestore.client()
 
-def upload_to_firestore(post_id, data):
+app = Flask(__name__)
+
+# Directory to save uploaded photos
+UPLOAD_FOLDER = "scanned_posts"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def process_photos(photos):
+    """Background processing for the photos."""
+    try:
+        output = {}
+        post_id = None
+
+        # Process photo1 with receiver.py
+        if '1' in photos:
+            combined_script_path = os.path.abspath("receiver.py")
+            print(f"Executing receiver.py with {photos['1']}")
+            result_combined = subprocess.run(
+                ["python", combined_script_path, photos['1']],
+                text=True,
+                capture_output=True,
+                check=True
+            )
+            output_combined = result_combined.stdout.strip()
+            output['combined_output'] = output_combined
+
+            # Extract post_id from the last line of the output
+            try:
+                lines = output_combined.split('\n')
+                last_line = lines[-1].strip()
+
+                print(f"Last line extracted: {last_line}")
+
+                if last_line.startswith("{") and last_line.endswith("}"):
+                    result_data = json.loads(last_line)
+                    post_id = result_data.get("post_id")
+                    if post_id:
+                        print(f"Extracted post_id: {post_id}")
+                    else:
+                        print("post_id not found in the last line of output.")
+                else:
+                    print("Last line is not valid JSON.")
+            except json.JSONDecodeError as e:
+                print(f"Error decoding receiver.py output: {e}")
+                post_id = None
+
+        # Execute sender.py with post_id and photo2
+        if post_id and '2' in photos:
+            sender_script_path = os.path.abspath("sender.py")
+            print(f"Executing sender.py with {photos['2']} and post_id={post_id}")
+            try:
+                result_sender = subprocess.run(
+                    ["python", sender_script_path, photos['2'], str(post_id)],
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
+                output_sender = result_sender.stdout.strip()
+                print(f"sender.py output: {output_sender}")
+                output['sender_output'] = output_sender
+            except subprocess.CalledProcessError as e:
+                print(f"Error executing sender.py: {e.stderr}")
+
+        # Execute message.py with post_id and message
+        if post_id:
+            message_script_path = os.path.abspath("message.py")
+            message = "Processing completed for photos"  # Example message
+            print(f"Executing message.py with post_id={post_id} and message='{message}'")
+            try:
+                result_message = subprocess.run(
+                    ["python", message_script_path, str(post_id), message],
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
+                output_message = result_message.stdout.strip()
+                print(f"message.py output: {output_message}")
+                output['message_output'] = output_message
+            except subprocess.CalledProcessError as e:
+                print(f"Error executing message.py: {e.stderr}")
+
+        print(f"Photo processing completed with output: {output}")
+
+    except Exception as e:
+        print(f"Error in background processing: {e}")
+
+@app.route("/upload", methods=["POST"])
+def upload_photo():
+    print("Received a request to /upload")
+
+    # Initialize a dictionary to store photo paths and IDs
+    photos = {}
+    responses = []
+
+    # Check and process 'photo1' and 'id1'
+    if "photo1" in request.files:
+        photo1 = request.files['photo1']
+        id1 = request.form.get('id1')
+        if not id1:
+            print("Missing id1 for photo1")
+            responses.append({"error": "Missing id1 for photo1"})
+        else:
+            photo1_path = os.path.join(UPLOAD_FOLDER, photo1.filename)
+            photo1.save(photo1_path)
+            photos['1'] = photo1_path
+            print(f"Saved photo1 at: {photo1_path}")
+            responses.append({"message": "photo1 uploaded successfully", "photo1_path": photo1_path})
+    else:
+        print("No photo1 part in the request")
+        responses.append({"error": "No photo1 part in the request"})
+
+    # Check and process 'photo2' and 'id2' if present
+    if "photo2" in request.files:
+        photo2 = request.files['photo2']
+        id2 = request.form.get('id2')
+        if not id2:
+            print("Missing id2 for photo2")
+            responses.append({"error": "Missing id2 for photo2"})
+        else:
+            photo2_path = os.path.join(UPLOAD_FOLDER, photo2.filename)
+            photo2.save(photo2_path)
+            photos['2'] = photo2_path
+            print(f"Saved photo2 at: {photo2_path}")
+            responses.append({"message": "photo2 uploaded successfully", "photo2_path": photo2_path})
+    else:
+        print("No photo2 part in the request")
+        responses.append({"error": "No photo2 part in the request"})
+
+    # Respond immediately after upload
+    response = {"message": "Photos uploaded successfully", "uploads": responses}
+    if photos:
+        # Start a thread to process the photos in the background
+        threading.Thread(target=process_photos, args=(photos,)).start()
+
+    return jsonify(response), 200
+
+@app.route('/check_delivery', methods=['GET'])
+def check_delivery():
+    # Get post_id from query parameters
+    post_id = request.args.get('post_id')
+    
+    if not post_id:
+        return jsonify({"error": "post_id is required"}), 400
+    
+    # Fetch document from Firestore using post_id
     try:
         doc_ref = db.collection("post_details").document(post_id)
-        doc_ref.set({"sender_details": data}, merge=True)
-        print(f"Data uploaded successfully for post_id: {post_id}")
-    except Exception as e:
-        print(f"Error uploading data to Firestore: {e}")
-
-def extract_address_and_pincode_from_image(photo_path):
-    document_analysis_client = DocumentAnalysisClient(
-        endpoint=AZURE_ENDPOINT, credential=AzureKeyCredential(AZURE_KEY)
-    )
-
-    with open(photo_path, "rb") as f:
-        poller = document_analysis_client.begin_analyze_document(
-            "prebuilt-read", document=f, features=[AnalysisFeature.LANGUAGES]
-        )
-    result = poller.result()
-
-    address_info = {"address": "", "word_confidence_score": {}}
-    for page in result.pages:
-        for line in page.lines:
-            address_info["address"] += f" {line.content}"
-            for word in line.get_words():
-                address_info["word_confidence_score"][word.content] = word.confidence
-
-    # Extract pincode
-    pincode = next(
-        (word for word in address_info["word_confidence_score"] if re.fullmatch(r"\d{6}", word)),
-        None
-    )
-    return address_info["address"].strip(), pincode
-
-def analyze_address_with_groq(address_text):
-    client = Groq(api_key=GROQ_API_KEY)
-    completion = client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": """Identify Address, Pincode, Phone Number, and Name if present.
-                    Note: Dont give any other information just provide the asked information in the specified format. 
-                    print that in this sequence: Name, PhoneNumber, Address, Pincode.
-                    i want the output in json format.
-                    """
-            },
-            {
-                "role": "user",
-                "content": address_text
-            }
-        ],
-        temperature=1,
-        max_tokens=1024,
-        top_p=1,
-        stream=True,
-        stop=None,
-    )
-
-    response_content = ""
-    for chunk in completion:
-        if chunk.choices[0].delta.content:  # Check for valid content
-            response_content += chunk.choices[0].delta.content
-
-    # Debug: Print full response content before parsing
-    #print("Response Content from Groq:", response_content)
-    return json.loads(response_content)
-
-def main():
-    if len(sys.argv) < 2:
-        print("Error: Please provide the photo path as an argument!")
-        sys.exit(1)
-
-    photo_path = sys.argv[1]
-    post_id = sys.argv[2] if len(sys.argv) > 2 else None  # Optional second argument
-
-    if not os.path.exists(photo_path):
-        print(f"Error: The file {photo_path} does not exist.")
-        sys.exit(1)
-
-    # Print the provided post_id
-    if post_id:
-        print(f"Received post_id: {post_id}")
-    else:
-        print("No post_id provided. Proceeding without it.")
-
-    try:
-        #print("Extracting address and pincode from image...")
-        address, pincode = extract_address_and_pincode_from_image(photo_path)
-        #print(f"Extracted Address: {address}")
-        #print(f"Extracted Pincode: {pincode}")
-
-        if not address or not pincode:
-            print("Error: Failed to extract address or pincode from the image.")
-            sys.exit(1)
-
-        #print("\nAnalyzing with Groq...")
-        groq_result = analyze_address_with_groq(address)
-        #print("Groq Analysis Result:")
-        #print(json.dumps(groq_result, indent=4))
-
-        # Upload to Firestore
-        if post_id:
-            upload_to_firestore(post_id, groq_result)
+        doc = doc_ref.get()
+        
+        if not doc.exists:
+            return jsonify({"error": "Post not found"}), 404
+        
+        # Get the 'isDelivered' status
+        is_delivered = doc.to_dict().get('isDelivered', None)
+        
+        if is_delivered is None:
+            return jsonify({"error": "isDelivered field not found"}), 404
+        
+        # Redirect based on the isDelivered status
+        if is_delivered:
+            return redirect("https://c390-49-249-229-42.ngrok-free.app/")
+            
         else:
-            print("No post_id provided. Data not uploaded to Firestore.")
-    except HttpResponseError as error:
-        print("Azure OCR Error:", error)
+            return redirect(f"https://0f4e-49-249-229-42.ngrok-free.app/delivery_status?post_id={post_id}")
+
+    
     except Exception as e:
-        print("Unexpected Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/delivery_status", methods=["GET"])
+def delivery_status():
+    post_id = request.args.get('post_id')
+    
+    if not post_id:
+        return jsonify({"error": "post_id is required"}), 400
+    
+    try:
+        # Fetch post details from Firestore using post_id
+        post_ref = db.collection('post_details').document(post_id)
+        post_doc = post_ref.get()
+        
+        if not post_doc.exists:
+            return jsonify({"error": f"No post found with post_id {post_id}"}), 404
+        
+        # Extract geocoded_details (latitude and longitude) from the document
+        post_data = post_doc.to_dict()
+        geocoded_details = post_data.get('geocoded_info', {})
+        
+        latitude = geocoded_details.get('latitude')
+        longitude = geocoded_details.get('longitude')
+        formattedAddress = geocoded_details.get('formattedAddress')
+        pincode = geocoded_details.get('pincode')
+        city = geocoded_details.get('city')
+        state = geocoded_details.get('state')
+        
+        if not latitude or not longitude:
+            return jsonify({"error": "Latitude and/or longitude not found in geocoded_details"}), 400
+        
+        # Return the data
+        return jsonify({
+            "post_id": post_id,
+            "geocoded_info":{
+            "latitude": latitude,
+            "longitude": longitude,
+            "formattedAddress": formattedAddress,
+            "pincode": pincode,
+            "city": city,
+            "state": state,
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    
+@app.route("/")
+def home():
+    return "Flask server is running! Use the /upload endpoint to upload photos."
+
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)

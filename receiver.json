@@ -1,0 +1,37 @@
+{
+    "azure": "Suresh Chouhan 8284916248 Hotel Rame Palace Sitapur, Uttrakhand 246471",
+    "post_id": "173398430595",
+    "receiver_details": {
+        "post_id": "173398430595",
+        "name": "Suresh Chouhan",
+        "phone_number": "8284916248",
+        "address": "Hotel Rame Palace Sitapur, Uttrakhand",
+        "pincode": "246471"
+    },
+    "geocoded_info": {
+        "formattedAddress": "Kedarnath Rd, Sitapur, Uttarakhand 246471, India",
+        "latitude": 30.6231789,
+        "longitude": 79.000705,
+        "pincode": "246471",
+        "city": "Sitapur",
+        "state": "Uttarakhand"
+    },
+    "nearest_post_office": {
+        "name": "Trijuginarain BO",
+        "pincode": 246471,
+        "delivery_type": "Delivery",
+        "state": "UTTARAKHAND",
+        "latitude": 30.647593,
+        "longitude": 78.988208,
+        "office_type": "BO"
+    },
+    "events": [
+        {
+            "date": "2024-12-12",
+            "time": "11:48 AM",
+            "location": "post office",
+            "status": "Post Received"
+        }
+    ],
+    "updated_at": "2024-12-12 11:48:26"
+}

@@ -63,8 +63,9 @@ def fetch_post_offices_by_pincode(pincode):
     return post_offices_list
 
 # Function to geocode an address using Google Geocoding API
-def geocode_address(api_key, address):
+def geocode_address(api_key, addr, pincode):
     url = "https://maps.googleapis.com/maps/api/geocode/json"
+    address = addr + pincode
     params = {"address": address, "key": api_key}
     response = requests.get(url, params=params)
     if response.status_code == 200:
@@ -94,7 +95,7 @@ def geocode_address(api_key, address):
 
 # Function to find the nearest post office to a given address
 def find_nearest_post_office(api_key, pc, address):
-    geocoded_info = geocode_address(api_key, address)
+    geocoded_info = geocode_address(api_key, address, pc)
     if "error" in geocoded_info:
         return geocoded_info
     
@@ -102,6 +103,7 @@ def find_nearest_post_office(api_key, pc, address):
     post_offices = fetch_post_offices_by_pincode(pc)
 
     if not post_offices:
+        print(pc)
         return {"error": "No post offices found for the given pincode"}
     
     nearest_post_office = None
@@ -190,9 +192,9 @@ def extract_address_details(address):
             print("No valid JSON found in response.")
     
     except json.JSONDecodeError as e:
-        print("Error decoding JSON:", e)
+        print("Error decoding JSON(llama):", e)
     except Exception as e:
-        print("An error occurred:", e)
+        print("An error occurred(llama):", e)
 
     return None  # Return None in case of an error
 
@@ -229,7 +231,7 @@ def generate_qr_code(data, pincode=None, post_office_name=None, output_path="qr_
         draw = ImageDraw.Draw(new_image)
         
         try:
-            font = ImageFont.truetype("arial.ttf", 35)
+            font = ImageFont.truetype("arial.ttf", 25)
         except IOError:
             font = ImageFont.load_default()
         
@@ -262,72 +264,111 @@ if __name__ == "__main__":
         if not os.path.exists(photo_path):
             raise FileNotFoundError(f"No such file or directory: {photo_path}")
 
-        # Extract address from photo
+        # Extract text from photo (Azure)
         address = process_photo(photo_path)
 
         # Extract structured details
         address_details = extract_address_details(address)
-        name = address_details.get('Name')
-        phone_number = address_details.get('PhoneNumber')
-        address = address_details.get('Address')
-        pincode = address_details.get('Pincode')
+        receiver_name = address_details.get('Name')
+        receiver_phone_number = address_details.get('PhoneNumber')
+        receiver_address = address_details.get('Address')
+        receiver_pincode = address_details.get('Pincode')
 
         # Geocode and find nearest post office
         with open("credentials.json", "r") as file:
             credentials = json.load(file)
         
         api_key = credentials["google_api_key"]
-        geocoded_info = geocode_address(api_key, address)
+        geocoded_info = geocode_address(api_key, receiver_address ,receiver_pincode)
         if "pincode" in geocoded_info:
-            rpincode = geocoded_info["pincode"]
+            correct_receiver_pincode = geocoded_info["pincode"]
         else :
-            rpincode = pincode    
-            print("Pincode:", pincode)
+            correct_receiver_pincode = receiver_pincode    
+            print("Pincode:", correct_receiver_pincode)
         if "formattedAddress" in geocoded_info:
-            raddress = geocoded_info["formattedAddress"]
-            print("formattedAddress:", raddress)  
+            updated_receiver_address = geocoded_info["formattedAddress"]
+            print("formattedAddress:", updated_receiver_address)  
         else :
-            raddress = address                  
-        print(rpincode, pincode, raddress, address)            
-        nearest_post_office = find_nearest_post_office(api_key, rpincode, raddress)
-        nearpo = nearest_post_office.get("name", "Unknown")
-        nearpc = nearest_post_office.get("pincode", "Unknown")
+            updated_receiver_address = receiver_address                  
+        print(correct_receiver_pincode, receiver_pincode, updated_receiver_address, receiver_address)            
+        nearest_post_office = find_nearest_post_office(api_key, correct_receiver_pincode, updated_receiver_address)
+        near_po_name = nearest_post_office.get("name", "Unknown")
+        near_pincode = nearest_post_office.get("pincode", "Unknown")
         print(nearest_post_office)
         # Generate unique post_id
         
-        print(nearpo, nearpc)
+        print(near_po_name, near_pincode)
         post_id = generate_unique_post_id()
-
+        current_time = datetime.now().strftime("%I:%M %p")  # Time in 12-hour format
+        current_date = datetime.now().strftime("%Y-%m-%d")  # Date in YYYY-MM-DD format
+        
+        initial_event = {
+        "date": current_date,
+        "time": current_time,
+        "location": "post office",
+        "status": "Post Received",
+        }
         # Prepare data for Firestore
         data = {
+            "isDelivered" : False,
             "receiver_details": {
                 "post_id": post_id,
-                "name": name,
-                "phone_number": phone_number,
-                "address": address
+                "name": receiver_name,
+                "phone_number": receiver_phone_number,
+                "address":receiver_address,
+                "pincode": receiver_pincode
             },
             "geocoded_info": geocoded_info,
             "nearest_post_office": nearest_post_office,
-            "status": 'scanned',
             "updated_at": datetime.now(),
-            "curr_post_office_name": ' '
+            "events": [initial_event]  # Add the initial event to the events array
+            
         }
 
         # Upload to Firestore
         upload_to_firestore(post_id, data)
         
-        qr_data = {
-            "post_id": post_id,
-            "geocoded_info": geocoded_info
-        }
-        qr_data_json = json.dumps(qr_data)
+        # Assuming you already have post_id, near_pincode, and near_po_name defined
+        qr_link = f"https://0f4e-49-249-229-42.ngrok-free.app/check_delivery?post_id={post_id}"
+        print(qr_link)
 
-        # Generate QR code and save as PNG file
+        # Generate QR code with the URL
         output_path = f"{post_id}.png"  # Save the QR code as {post_id}.png
-        generate_qr_code(qr_data_json, nearpc, nearpo, output_path)
+        generate_qr_code(qr_link, near_pincode, near_po_name, output_path)
+        
+        
+        
+        receiver_data_json = {
+            "azure": address,
+            "post_id": post_id,
+            "receiver_details": {
+                "post_id": post_id,
+                "name": receiver_name,
+                "phone_number": receiver_phone_number,
+                "address":receiver_address,
+                "pincode": receiver_pincode
+            },
+            "geocoded_info": geocoded_info,
+            "nearest_post_office": nearest_post_office,
+            "events": [
+                {
+                    "date": initial_event["date"],
+                    "time": initial_event["time"],
+                    "location": initial_event["location"],
+                    "status": initial_event["status"],
+                }
+            ],
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Format datetime as string
+        }
+
+        # Save the receiver_data to receiver.json
+        with open("receiver.json", "w") as json_file:
+            json.dump(receiver_data_json, json_file, indent=4)
         
         print(json.dumps({"post_id": post_id}))
         sys.exit(0)  # Clean exit
+        
+        
         
     except Exception as e:
         print("Error:", str(e))
