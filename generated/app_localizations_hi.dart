@@ -1,10 +1,10 @@
-import 'package:dakmadad/l10n/generated/S.dart';
+import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
 
 /// The translations for Hindi (`hi`).
-class SHi extends S {
-  SHi([String locale = 'hi']) : super(locale);
+class AppLocalizationsHi extends AppLocalizations {
+  AppLocalizationsHi([String locale = 'hi']) : super(locale);
 
   @override
   String get yourLocation => 'आपका स्थान';
@@ -46,7 +46,7 @@ class SHi extends S {
   String get checkStatus => 'स्थिति जांचें';
 
   @override
-  String get checkStatusOfArticle => 'मैन्युअल रूप से विवरण दें';
+  String get checkStatusOfArticle => 'आलेख की स्थिति जांचें';
 
   @override
   String get settings => 'सेटिंग्स';
@@ -164,18 +164,4 @@ class SHi extends S {
 
   @override
   String get loading => 'लोड हो रहा है...';
-  @override
-  String get welcomeTo => 'डाक मदद';
-
-  @override
-  String get dakMadad => 'आपका स्वागत है';
-
-  @override
-  String get poweredByIndiaPost => 'भारत पोस्ट द्वारा संचालित';
-
-  @override
-  String get dakSewaJanSewa => 'डाक सेवा, जन सेवा';
-
-  @override
-  String get getStarted => 'शुरू करें';
 }

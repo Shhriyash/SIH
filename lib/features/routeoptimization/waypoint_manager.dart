@@ -6,11 +6,10 @@ import 'package:dakmadad/features/routeoptimization/waypoint_adder.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-
 class WaypointManagerPage extends StatelessWidget {
   const WaypointManagerPage({super.key});
 
-  // Validation for coordinates
+  /// Validation for coordinates
   bool _validateCoordinate(String coordinate) {
     List<String> parts = coordinate.split(',');
     if (parts.length != 2) return false;
@@ -25,7 +24,7 @@ class WaypointManagerPage extends StatelessWidget {
     return true;
   }
 
-  // Dialog for Editing Waypoint
+  /// Dialog for Editing Waypoint
   Future<void> _showWaypointDialog({
     required BuildContext context,
     required Waypoint waypoint,
@@ -94,14 +93,23 @@ class WaypointManagerPage extends StatelessWidget {
                   );
 
                   // Update via Provider
-                  await Provider.of<WaypointProvider>(context, listen: false)
-                      .updateWaypoint(updatedWaypoint);
+                  try {
+                    await Provider.of<WaypointProvider>(context, listen: false)
+                        .updateWaypoint(updatedWaypoint);
 
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Waypoint updated successfully.')),
-                  );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Waypoint updated successfully.')),
+                    );
 
-                  Navigator.pop(context);
+                    Navigator.pop(context);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(
+                              'Failed to update waypoint: ${e.toString()}')),
+                    );
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Please fill in all fields')),
@@ -115,7 +123,7 @@ class WaypointManagerPage extends StatelessWidget {
     );
   }
 
-  // Remove Waypoint
+  /// Removes a waypoint after confirmation.
   Future<void> _removeWaypoint(BuildContext context, int index) async {
     Waypoint waypoint =
         Provider.of<WaypointProvider>(context, listen: false).waypoints[index];
@@ -159,7 +167,7 @@ class WaypointManagerPage extends StatelessWidget {
     }
   }
 
-  // Mark as Delivered
+  /// Marks a waypoint as delivered.
   Future<void> _markAsDelivered(BuildContext context, int index) async {
     Waypoint waypoint =
         Provider.of<WaypointProvider>(context, listen: false).waypoints[index];
@@ -176,7 +184,7 @@ class WaypointManagerPage extends StatelessWidget {
     }
   }
 
-  // Reset Waypoints
+  /// Resets all waypoints after confirmation.
   Future<void> _resetWaypoints(BuildContext context) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -203,11 +211,17 @@ class WaypointManagerPage extends StatelessWidget {
     );
 
     if (confirm == true) {
-      await Provider.of<WaypointProvider>(context, listen: false)
-          .resetWaypoints();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Waypoint list has been reset.')),
-      );
+      try {
+        await Provider.of<WaypointProvider>(context, listen: false)
+            .resetWaypoints();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Waypoint list has been reset.')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reset waypoints: $e')),
+        );
+      }
     }
   }
 
@@ -243,8 +257,7 @@ class WaypointManagerPage extends StatelessWidget {
               String latitude = coordinates[0];
               String longitude = coordinates[1];
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Card(
                   elevation: 3,
                   shape: RoundedRectangleBorder(
@@ -257,15 +270,12 @@ class WaypointManagerPage extends StatelessWidget {
                       children: [
                         // Waypoint Header
                         Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
                               child: Text(
                                 '${index + 1}. ${waypoint.name}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge,
+                                style: Theme.of(context).textTheme.titleLarge,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -275,8 +285,7 @@ class WaypointManagerPage extends StatelessWidget {
                                     horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.green,
-                                  borderRadius:
-                                      BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Text(
                                   'Delivered',
@@ -292,56 +301,65 @@ class WaypointManagerPage extends StatelessWidget {
                         // Coordinates
                         Text(
                           'Latitude: $latitude\nLongitude: $longitude',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge,
+                          style: Theme.of(context).textTheme.bodyLarge,
                         ),
                         const SizedBox(height: 8),
                         // Post ID
                         Text(
                           'Post ID: ${waypoint.postId}',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium,
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 12),
                         // Action Buttons
-                        Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                        Column(
                           children: [
-                            // Edit Button
-                            ElevatedButton.icon(
-                              onPressed: () => _showWaypointDialog(
-                                  context: context,
-                                  waypoint: waypoint,
-                                  index: index),
-                              icon: const Icon(Icons.edit),
-                              label: const Text('Edit'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor:
-                                    Theme.of(context).primaryColor,
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                // Edit Button
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _showWaypointDialog(
+                                        context: context,
+                                        waypoint: waypoint,
+                                        index: index),
+                                    icon: const Icon(Icons.edit),
+                                    label: const Text('Edit'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor:
+                                          Theme.of(context).primaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                // Delete Button
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () =>
+                                        _removeWaypoint(context, index),
+                                    icon: const Icon(Icons.delete),
+                                    label: const Text('Delete'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            // Delete Button
-                            ElevatedButton.icon(
-                              onPressed: () => _removeWaypoint(context, index),
-                              icon: const Icon(Icons.delete),
-                              label: const Text('Delete'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
-                            ),
+                            const SizedBox(height: 8),
                             // Mark as Delivered Button
-                            ElevatedButton.icon(
-                              onPressed: waypoint.isDelivered
-                                  ? null
-                                  : () => _markAsDelivered(context, index),
-                              icon: const Icon(Icons.check),
-                              label: const Text('Mark as Delivered'),
-                              style: ElevatedButton.styleFrom(
-                                foregroundColor: Colors.black,
-                                backgroundColor: Colors.yellow,
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: waypoint.isDelivered
+                                    ? null
+                                    : () => _markAsDelivered(context, index),
+                                icon: const Icon(Icons.check),
+                                label: const Text('Mark as Delivered'),
+                                style: ElevatedButton.styleFrom(
+                                  foregroundColor: Colors.white,
+                                  backgroundColor: Colors.orangeAccent,
+                                ),
                               ),
                             ),
                           ],
@@ -370,7 +388,7 @@ class WaypointManagerPage extends StatelessWidget {
         label: const Text('Add Waypoint'),
         tooltip: 'Add Waypoint',
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.miniEndFloat,
     );
   }
 }

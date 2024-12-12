@@ -1,3 +1,4 @@
+import 'package:dakmadad/core/theme/app_colors.dart';
 import 'package:dakmadad/features/auth/domain/services/auth_service.dart';
 import 'package:dakmadad/features/home/home_screen.dart';
 import 'package:flutter/material.dart';
@@ -79,7 +80,6 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => HomeScreen(
-            
             onThemeChange: widget.onThemeChange,
             onLanguageChange: widget.onLanguageChange,
           ),
@@ -109,7 +109,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                 style: GoogleFonts.montserrat(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.red,
+                  color: AppColors.primaryRed,
                 ),
               ),
               const SizedBox(height: 10),
@@ -141,7 +141,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.grey[100],
-                    prefixIcon: const Icon(Icons.phone, color: Colors.red),
+                    prefixIcon:
+                        const Icon(Icons.phone, color: AppColors.primaryRed),
                   ),
                 ),
 
@@ -161,7 +162,8 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     ),
                     filled: true,
                     fillColor: Colors.grey[100],
-                    prefixIcon: const Icon(Icons.lock, color: Colors.red),
+                    prefixIcon:
+                        const Icon(Icons.lock, color: AppColors.primaryRed),
                   ),
                 ),
               const SizedBox(height: 30),
@@ -180,7 +182,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.primaryRed,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -204,7 +206,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     "Resend OTP",
                     style: GoogleFonts.montserrat(
                       fontSize: 16,
-                      color: Colors.red,
+                      color: AppColors.primaryRed,
                       decoration: TextDecoration.underline,
                     ),
                   ),

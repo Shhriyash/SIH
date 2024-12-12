@@ -1,21 +1,16 @@
 // lib/features/home/delivery_page.dart
 
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dakmadad/features/home/check_status.dart';
-import 'package:dakmadad/features/home/merged_pin_code.dart';
 import 'package:dakmadad/features/routeoptimization/waypoint_adder.dart';
+import 'package:dakmadad/features/routeoptimization/optimized_route_page.dart';
+import 'package:dakmadad/features/voice_enabled/reciever_form.dart';
 import 'package:dakmadad/l10n/generated/S.dart';
-import 'package:dakmadad/features/routeoptimization/optimized_route_page.dart'; // Import the optimized route page
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:dakmadad/core/theme/app_colors.dart';
-import 'package:dakmadad/features/camera/pages/edge_detection.dart';
-import 'package:location/location.dart'; // Import location
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:location/location.dart';
 
 class DeliveryPage extends StatefulWidget {
   final Function(Locale locale) onLanguageChange;
@@ -32,78 +27,23 @@ class DeliveryPage extends StatefulWidget {
 }
 
 class _DeliveryPageState extends State<DeliveryPage> {
-  String _postOfficeName = "Loading..."; // Default text while fetching
+  final String _postOfficeName = "Loading...";
   bool isFetching = false;
 
   // Location related variables
   LocationData? _currentLocation;
   bool _isFetchingLocation = false;
   final Location _location = Location();
-  // Removed location subscription since it's not needed without navigation
-  // StreamSubscription<LocationData>? _locationSubscription;
 
   @override
   void initState() {
     super.initState();
-    _fetchPostOfficeName();
     _fetchCurrentLocation();
   }
 
   @override
   void dispose() {
-    // Removed location subscription disposal since it's not used
-    // _locationSubscription?.cancel();
     super.dispose();
-  }
-
-  Future<void> _fetchPostOfficeName() async {
-    setState(() {
-      isFetching = true;
-    });
-
-    final prefs = await SharedPreferences.getInstance();
-    final cachedPostOfficeName = prefs.getString('postOfficeName');
-
-    // Use cached data if available
-    if (cachedPostOfficeName != null) {
-      setState(() {
-        _postOfficeName = cachedPostOfficeName;
-        isFetching = false;
-      });
-    }
-
-    try {
-      // Fetch post office name from Firestore
-      final userId = FirebaseAuth.instance.currentUser?.uid;
-      if (userId == null) throw "User not logged in";
-
-      final docSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .get();
-
-      if (docSnapshot.exists) {
-        final postOfficeName = docSnapshot.data()?['postOffice'] ?? "Unknown";
-
-        // Update the cache and UI
-        await prefs.setString('postOfficeName', postOfficeName);
-        setState(() {
-          _postOfficeName = postOfficeName;
-          isFetching = false;
-        });
-      } else {
-        setState(() {
-          _postOfficeName = "No data found";
-          isFetching = false;
-        });
-      }
-    } catch (e) {
-      // Handle errors
-      setState(() {
-        _postOfficeName = "Error fetching data";
-        isFetching = false;
-      });
-    }
   }
 
   Future<void> _fetchCurrentLocation() async {
@@ -119,9 +59,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
     if (!serviceEnabled) {
       serviceEnabled = await _location.requestService();
       if (!serviceEnabled) {
-        // Handle the case where service is not enabled
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location services are disabled.')),
+          SnackBar(content: Text(S.of(context)!.errorFetchingData)),
         );
         setState(() {
           _isFetchingLocation = false;
@@ -136,9 +75,8 @@ class _DeliveryPageState extends State<DeliveryPage> {
         permissionGranted == PermissionStatus.deniedForever) {
       permissionGranted = await _location.requestPermission();
       if (permissionGranted != PermissionStatus.granted) {
-        // Handle the case where permission is not granted
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location permissions are denied.')),
+          SnackBar(content: Text(S.of(context)!.errorFetchingData)),
         );
         setState(() {
           _isFetchingLocation = false;
@@ -147,36 +85,27 @@ class _DeliveryPageState extends State<DeliveryPage> {
       }
     }
 
-    // Get location data
     LocationData locationData = await _location.getLocation();
     setState(() {
       _currentLocation = locationData;
       _isFetchingLocation = false;
     });
-
-    // Optionally, listen to location changes
-    // _locationSubscription = _location.onLocationChanged.listen((newLocationData) {
-    //   setState(() {
-    //     _currentLocation = newLocationData;
-    //   });
-    // });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Removed AppBar
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 20), // Adjusted padding
+          padding: const EdgeInsets.only(bottom: 20),
           child: Column(
             children: [
               Container(
                 decoration: const BoxDecoration(
                   color: AppColors.primaryRed,
                   borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(50),
-                    bottomRight: Radius.circular(50),
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
                   ),
                 ),
                 padding:
@@ -185,20 +114,19 @@ class _DeliveryPageState extends State<DeliveryPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Delivery Section',
+                      S.of(context)!.deliverySection,
                       style: GoogleFonts.montserrat(
-                        fontSize: 32, // Adjusted font size for better fit
+                        fontSize: 44,
                         fontWeight: FontWeight.w900,
                         color: Colors.yellow[100],
                       ),
                     ),
-                    const SizedBox(height: 16),
                     InkWell(
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const EdgeDetectionPage(),
+                            builder: (context) => const WaypointAdderPage(),
                           ),
                         );
                       },
@@ -220,21 +148,29 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         child: Row(
                           children: [
                             SizedBox(
-                              height: 80, // Adjusted height
-                              width: 80, // Adjusted width
-                              child: Lottie.asset(
-                                'assets/jsons/document_scanning.json',
-                                height: 80,
-                                width: 80,
-                                fit: BoxFit.fitWidth,
+                              height: 120,
+                              width: 150,
+                              child: LottieBuilder.asset(
+                                'assets/jsons/delivery_animation.json',
+                                fit: BoxFit.cover,
+                                repeat: true,
+                                onLoaded: (composition) {
+                                  print(
+                                      'Animation loaded with ${composition.duration}');
+                                },
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Center(
+                                      child: Text(
+                                          S.of(context)!.errorFetchingData));
+                                },
                               ),
                             ),
-                            const SizedBox(width: 16),
+                            const SizedBox(width: 24),
                             Expanded(
                               child: Text(
-                                S.of(context)!.scanParcel,
+                                S.of(context)!.qrScanToUpdate,
                                 style: GoogleFonts.montserrat(
-                                  fontSize: 20, // Adjusted font size
+                                  fontSize: 20,
                                   fontWeight: FontWeight.w700,
                                   color: const Color(0xFFB71C1C),
                                 ),
@@ -244,85 +180,19 @@ class _DeliveryPageState extends State<DeliveryPage> {
                         ),
                       ),
                     ),
-                    // Search Field for Consignment
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: S.of(context)!.enterConsignment,
-                          filled: true,
-                          fillColor: Colors.white,
-                          prefixIcon:
-                              const Icon(Icons.search, color: Colors.grey),
-                          suffixIcon:
-                              const Icon(Icons.qr_code, color: Colors.grey),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              // Add delivery feature cards here
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   children: [
                     _buildCard(
-                      icon: Icons.camera_alt,
-                      title: 'Scan Article',
-                      description: 'Scan the Article to generate QR',
-                      onTap: () {
-                        // Handle tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const EdgeDetectionPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12), // Reduced spacing
-                    _buildCard(
-                      icon: Icons.location_on,
-                      title: 'Merged Pincodes',
-                      description: 'View and merge pincodes',
-                      onTap: () {
-                        // Handle tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MergedPinCodesPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12), // Reduced spacing
-                    _buildCard(
-                      icon: CupertinoIcons.check_mark_circled,
-                      title: 'Check Status',
-                      description: 'Check Status of a Article',
-                      onTap: () {
-                        // Handle tap
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CheckStatusPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 12), // Reduced spacing
-                    _buildCard(
                       icon: Icons.settings,
-                      title: 'waypoint adder',
-                      description: 'Adjust your preferences',
+                      title: S.of(context)!.waypointAdder,
+                      description: S.of(context)!.adjustYourDeliveryPreferences,
                       onTap: () {
-                        // Handle tap
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -331,11 +201,12 @@ class _DeliveryPageState extends State<DeliveryPage> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    // New Card for Optimized Route
                     _buildCard(
                       icon: Icons.route,
-                      title: 'Optimized Route',
-                      description: 'View and manage optimized delivery routes',
+                      title: S.of(context)!.optimisedRoute,
+                      // Since there's no suitable description in ARB for the second card,
+                      // we will omit the description entirely.
+                      description: '',
                       onTap: () {
                         if (_currentLocation != null) {
                           Navigator.push(
@@ -346,13 +217,26 @@ class _DeliveryPageState extends State<DeliveryPage> {
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                    Text('Current location is not available.')),
+                            SnackBar(content: Text(S.of(context)!.unknown)),
                           );
                         }
                       },
                     ),
+                    const SizedBox(height: 12),
+                    _buildCard(
+                      icon: CupertinoIcons.check_mark_circled,
+                      title: S.of(context)!.checkStatus,
+                      description: S.of(context)!.checkStatusOfArticle,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ReceiverDetailsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
@@ -361,11 +245,9 @@ class _DeliveryPageState extends State<DeliveryPage> {
           ),
         ),
       ),
-      // Removed FloatingNavBar and other navigation elements
     );
   }
 
-  // Helper method to build a card
   Widget _buildCard({
     required IconData icon,
     required String title,
@@ -398,21 +280,24 @@ class _DeliveryPageState extends State<DeliveryPage> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: Colors.red[50],
+                color: Colors.white10,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
+                    color: Colors.red.withOpacity(0.3),
+                    blurRadius: 1,
+                    offset: const Offset(0, 0),
                   ),
                 ],
               ),
               padding: const EdgeInsets.all(16),
-              child: Icon(icon,
-                  size: 32, color: AppColors.primaryRed), // Enlarged size
+              child: Icon(
+                icon,
+                size: 32,
+                color: AppColors.primaryRed,
+              ),
             ),
-            const SizedBox(width: 16), // Improved spacing
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -420,28 +305,29 @@ class _DeliveryPageState extends State<DeliveryPage> {
                   Text(
                     title,
                     style: GoogleFonts.montserrat(
-                      fontSize: 18, // Enlarged font size
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryRed,
                     ),
                   ),
-                  const SizedBox(height: 8), // Increased spacing
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 14, // Improved font size for better readability
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w600,
-                      height: 1.5, // Improved line height for clarity
+                  if (description.isNotEmpty) const SizedBox(height: 8),
+                  if (description.isNotEmpty)
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
             const Icon(
               Icons.arrow_forward_ios,
               color: AppColors.primaryRed,
-              size: 20, // Slightly larger size for emphasis
+              size: 20,
             ),
           ],
         ),

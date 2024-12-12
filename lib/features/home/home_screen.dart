@@ -1,10 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:dakmadad/features/auth/presentation/screens/placeholder_screen.dart';
+import 'package:dakmadad/features/auth/presentation/screens/register_screen.dart';
 import 'package:dakmadad/features/delivery/delivery_page.dart';
-import 'package:dakmadad/features/home/check_status.dart';
 import 'package:dakmadad/features/home/folating_nav_bar.dart';
-import 'package:dakmadad/features/home/merged_pin_code.dart';
 import 'package:dakmadad/features/home/user_page.dart';
+import 'package:dakmadad/features/voice_enabled/reciever_form.dart';
+import 'package:dakmadad/features/voice_enabled/sender_form.dart';
 import 'package:dakmadad/l10n/generated/S.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
@@ -31,14 +32,20 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _postOfficeName = "Loading..."; // Default text while fetching
+  String _postOfficeName = ""; // Will be set after localization is available
   bool isFetching = false;
   int _selectedIndex = 0; // For navigation bar
 
   @override
   void initState() {
     super.initState();
-    _fetchPostOfficeName();
+    // Initialize _postOfficeName after the first frame to ensure context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+        _postOfficeName = S.of(context)!.loading;
+      });
+      _fetchPostOfficeName();
+    });
   }
 
   Future<void> _fetchPostOfficeName() async {
@@ -68,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
           .get();
 
       if (docSnapshot.exists) {
-        final postOfficeName = docSnapshot.data()?['postOffice'] ?? "Unknown";
+        final postOfficeName =
+            docSnapshot.data()?['postOffice'] ?? S.of(context)!.unknown;
 
         // Update the cache and UI
         await prefs.setString('postOfficeName', postOfficeName);
@@ -78,14 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       } else {
         setState(() {
-          _postOfficeName = "No data found";
+          _postOfficeName = S.of(context)!.noDataFound;
           isFetching = false;
         });
       }
     } catch (e) {
       // Handle errors
       setState(() {
-        _postOfficeName = "Error fetching data";
+        _postOfficeName = S.of(context)!.errorFetchingData;
         isFetching = false;
       });
     }
@@ -148,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             Text(
-              '$_postOfficeName Post Office',
+              '$_postOfficeName ${S.of(context)!.postOffice}',
               style: const TextStyle(
                 fontSize: 12,
                 color: Colors.white,
@@ -194,21 +202,21 @@ class _HomeScreenState extends State<HomeScreen> {
           FloatingNavBar(
             selectedIndex: _selectedIndex,
             onTabChange: _onNavBarTap,
-            tabs: const [
+            tabs: [
               GButton(
                 icon: Icons.local_post_office_outlined,
-                text: 'Office',
+                text: S.of(context)!.office, // Replaced with localized string
                 iconSize: 15,
-                textStyle: TextStyle(
+                textStyle: const TextStyle(
                   fontSize: 14,
                   color: Colors.amberAccent,
                 ),
               ),
               GButton(
                 icon: Icons.delivery_dining_outlined,
-                text: 'Delivery',
+                text: S.of(context)!.delivery, // Replaced with localized string
                 iconSize: 15,
-                textStyle: TextStyle(
+                textStyle: const TextStyle(
                   fontSize: 14,
                   color: Colors.amberAccent,
                 ),
@@ -231,8 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: const BoxDecoration(
                 color: AppColors.primaryRed,
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(50),
-                  bottomRight: Radius.circular(50),
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
                 ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -240,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Office Section',
+                    S.of(context)!.officeSection,
                     style: GoogleFonts.montserrat(
                       fontSize: 48, // Reduced font size
                       fontWeight: FontWeight.w900,
@@ -328,12 +336,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   _buildCard(
                     icon: Icons.camera_alt,
-                    title: 'Scan Article ',
-                    description: 'Scan the Article to generate QR',
+                    title: S.of(context)!.scanArticle, // Localized title
+                    description:
+                        S.of(context)!.scanTheArticle, // Localized description
                     onTap: () {
                       // Handle tap
-                      // Example: Navigate to Track Parcel Page
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => TrackParcelPage()));
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -342,36 +349,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                   ),
-                  const SizedBox(height: 12), // Reduced spacing
-                  _buildCard(
-                    icon: Icons.location_on,
-                    title: 'Merged Pincodes',
-                    description: 'View and merge pincodes',
-                    onTap: () {
-                      // Handle tap
-                      // Example: Navigate to History Page
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => HistoryPage()));
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const MergedPinCodesPage(),
-                        ),
-                      );
-                    },
-                  ),
+
                   const SizedBox(height: 12), // Reduced spacing
                   _buildCard(
                     icon: CupertinoIcons.check_mark_circled,
-                    title: 'Check Status',
-                    description: 'Check Status of a Article',
+                    title: S.of(context)!.checkStatus, // Localized title
+                    description: S
+                        .of(context)!
+                        .checkStatusOfArticle, // Localized description
                     onTap: () {
                       // Handle tap
-                      // Example: Navigate to Support Page
-                      // Navigator.push(context, MaterialPageRoute(builder: (context) => SupportPage()));
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const CheckStatusPage(),
+                          builder: (context) => const ReceiverDetailsPage(),
                         ),
                       );
                     },
@@ -379,11 +370,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12), // Reduced spacing
                   _buildCard(
                     icon: Icons.settings,
-                    title: 'Settings',
-                    description: 'Adjust your preferences',
+                    title: S.of(context)!.settings, // Localized title
+                    description: S
+                        .of(context)!
+                        .adjustYourPreferences, // Localized description
                     onTap: () {
                       // Handle tap
-                      // Optionally switch to Settings tab
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -438,19 +430,22 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: Colors.red[50],
+                color: Colors.white10,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 2,
-                    offset: const Offset(0, 1),
+                    color: Colors.red.withOpacity(0.3),
+                    blurRadius: 1,
+                    offset: const Offset(0, 0),
                   ),
                 ],
               ),
               padding: const EdgeInsets.all(16),
-              child: Icon(icon,
-                  size: 32, color: AppColors.primaryRed), // Enlarged size
+              child: Icon(
+                icon,
+                size: 32,
+                color: AppColors.primaryRed,
+              ), // Enlarged size
             ),
             const SizedBox(width: 16), // Improved spacing
             Expanded(

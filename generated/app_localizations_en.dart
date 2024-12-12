@@ -1,10 +1,10 @@
-import 'package:dakmadad/l10n/generated/S.dart';
+import 'app_localizations.dart';
 
 // ignore_for_file: type=lint
 
 /// The translations for English (`en`).
-class SEn extends S {
-  SEn([String locale = 'en']) : super(locale);
+class AppLocalizationsEn extends AppLocalizations {
+  AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
   String get yourLocation => 'Your Location';
@@ -46,7 +46,7 @@ class SEn extends S {
   String get checkStatus => 'Check Status';
 
   @override
-  String get checkStatusOfArticle => 'add details manually';
+  String get checkStatusOfArticle => 'Check Status of a Article';
 
   @override
   String get settings => 'Settings';
@@ -58,8 +58,7 @@ class SEn extends S {
   String get waypointAdder => 'Waypoint Adder';
 
   @override
-  String get adjustYourDeliveryPreferences =>
-      'Adjust your delivery preferences';
+  String get adjustYourDeliveryPreferences => 'Adjust your delivery preferences';
 
   @override
   String get office => 'Office';
@@ -95,8 +94,7 @@ class SEn extends S {
   String get createAccount => 'Create Your Account';
 
   @override
-  String get fillDetailsToGetStarted =>
-      'Please fill in your details to get started.';
+  String get fillDetailsToGetStarted => 'Please fill in your details to get started.';
 
   @override
   String get fullName => 'Full Name';
@@ -166,18 +164,4 @@ class SEn extends S {
 
   @override
   String get loading => 'Loading...';
-  @override
-  String get welcomeTo => 'Welcome to';
-
-  @override
-  String get dakMadad => 'Dak Madad';
-
-  @override
-  String get poweredByIndiaPost => 'Powered by India Post';
-
-  @override
-  String get dakSewaJanSewa => 'Dak Sewa, Jan Sewa';
-
-  @override
-  String get getStarted => 'Get Started';
 }

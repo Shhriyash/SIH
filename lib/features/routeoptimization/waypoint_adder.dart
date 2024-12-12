@@ -1,8 +1,10 @@
-// lib/features/routeoptimization/waypoint_adder_page.dart
+// lib/pages/waypoint_adder.dart
 
+import 'dart:async';
 import 'package:dakmadad/features/routeoptimization/helpers/waypoint_provider.dart';
 import 'package:dakmadad/features/routeoptimization/models/waypoint.dart';
 import 'package:dakmadad/features/routeoptimization/services/qr_parser.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
@@ -17,16 +19,17 @@ class WaypointAdderPage extends StatefulWidget {
 
 class _WaypointAdderPageState extends State<WaypointAdderPage> {
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? controller;
+  QRViewController? qrController;
   bool isScanning = false;
 
   @override
   void dispose() {
-    controller?.dispose();
+    qrController?.dispose();
     super.dispose();
   }
 
-  void _startQRScan() async {
+  /// Starts the QR scanning process.
+  Future<void> startQRScan() async {
     setState(() {
       isScanning = true;
     });
@@ -39,7 +42,7 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
           ),
           body: QRView(
             key: qrKey,
-            onQRViewCreated: _onQRViewCreated,
+            onQRViewCreated: onQRViewCreated,
           ),
         ),
       ),
@@ -49,54 +52,95 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
     });
   }
 
-  void _onQRViewCreated(QRViewController qrController) {
-    controller = qrController;
-    controller?.scannedDataStream.listen((scanData) async {
-      controller?.pauseCamera();
+  /// Handles the QR scanning result.
+  void onQRViewCreated(QRViewController controller) {
+    qrController = controller;
+    qrController?.scannedDataStream.listen((scanData) async {
+      qrController?.pauseCamera();
       String qrCodeData = scanData.code ?? '';
 
-      print('Scanned QR Code Data: $qrCodeData');
-
       try {
-        // Parse QR code data using the custom QRParser
-        Waypoint waypoint = await QRParser.parseQRCodeIsolate(qrCodeData);
+        // Parse QR code data to get a Waypoint
+        Waypoint scannedWaypoint =
+            await QRParser.parseQRCodeIsolate(qrCodeData);
 
-        // Generate a unique postId using Firestore auto ID
-        DocumentReference docRef =
-            FirebaseFirestore.instance.collection('post_details').doc();
-        Waypoint newWaypoint = Waypoint(
-          name: waypoint.name,
-          coordinate: waypoint.coordinate,
-          postId: docRef.id,
-        );
-
-        // Add to Provider
+        // Add waypoint via Provider
         await Provider.of<WaypointProvider>(context, listen: false)
-            .addWaypoint(newWaypoint);
+            .addWaypoint(scannedWaypoint);
+
+        // Fetch current user's UID
+        // Assuming you are using FirebaseAuth:
+        final currentUser = FirebaseAuth.instance.currentUser;
+
+        if (currentUser == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User not logged in.')),
+          );
+          Navigator.pop(context);
+          return;
+        }
+
+        // Fetch user's post office name from user doc
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(currentUser.uid)
+            .get();
+
+        if (!userDoc.exists) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('User document not found.')),
+          );
+          Navigator.pop(context);
+          return;
+        }
+
+        final userData = userDoc.data()!;
+        String postOfficeName = userData['postOffice'] ?? 'Unknown Post Office';
+
+        // Now update Firestore's post_details with the new event
+        final now = DateTime.now();
+        final dateStr =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        final timeOfDay = TimeOfDay.fromDateTime(now);
+        final timeStr = timeOfDay.format(context);
+
+        await FirebaseFirestore.instance
+            .collection('post_details')
+            .doc(scannedWaypoint.postId)
+            .update({
+          'events': FieldValue.arrayUnion([
+            {
+              'date': dateStr,
+              'location': postOfficeName,
+              'status': 'In Transit',
+              'time': timeStr,
+            }
+          ]),
+          'updated_at': DateTime.now().toIso8601String()
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Waypoint added successfully.')),
+          const SnackBar(
+              content: Text('Waypoint added and event updated successfully.')),
         );
 
         Navigator.pop(context);
       } catch (e) {
-        print('Error parsing QR code data: $e');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to parse QR code: ${e.toString()}'),
-          ),
+          SnackBar(content: Text('Failed to process QR code: ${e.toString()}')),
         );
-        controller?.resumeCamera();
+        qrController?.resumeCamera();
       }
     });
   }
 
-  void _addWaypointManually() {
+  /// Opens a dialog to add a waypoint manually.
+  Future<void> addWaypointManually() async {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController latController = TextEditingController();
     final TextEditingController lngController = TextEditingController();
 
-    showDialog(
+    await showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -150,10 +194,7 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
                       '${latController.text.trim()},${lngController.text.trim()}';
 
                   // Validate coordinates
-                  List<String> parts = coordinate.split(',');
-                  if (parts.length != 2 ||
-                      double.tryParse(parts[0]) == null ||
-                      double.tryParse(parts[1]) == null) {
+                  if (!validateCoordinate(coordinate)) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                           content: Text(
@@ -173,15 +214,193 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
                   );
 
                   // Add to Provider
-                  await Provider.of<WaypointProvider>(context, listen: false)
-                      .addWaypoint(waypoint);
-
+                  try {
+                    await Provider.of<WaypointProvider>(context, listen: false)
+                        .addWaypoint(waypoint);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Waypoint added successfully.')),
+                    );
+                    Navigator.pop(context);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content:
+                              Text('Failed to add waypoint: ${e.toString()}')),
+                    );
+                  }
+                } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Waypoint added successfully.')),
+                    const SnackBar(content: Text('Please fill in all fields')),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Validates the coordinate string.
+  bool validateCoordinate(String coordinate) {
+    List<String> parts = coordinate.split(',');
+    if (parts.length != 2) return false;
+
+    double? lat = double.tryParse(parts[0].trim());
+    double? lng = double.tryParse(parts[1].trim());
+
+    if (lat == null || lng == null) return false;
+    if (lat < -90 || lat > 90) return false;
+    if (lng < -180 || lng > 180) return false;
+
+    return true;
+  }
+
+  /// Removes a waypoint after confirmation.
+  Future<void> removeWaypoint(int index) async {
+    Waypoint waypoint =
+        Provider.of<WaypointProvider>(context, listen: false).waypoints[index];
+
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Remove Waypoint'),
+          content: const Text(
+              'Are you sure you want to remove this waypoint from the list?'),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(context, false),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Remove'),
+              onPressed: () => Navigator.pop(context, true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      try {
+        await Provider.of<WaypointProvider>(context, listen: false)
+            .removeWaypoint(waypoint.postId);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Waypoint removed successfully.')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to remove waypoint: $e')),
+        );
+      }
+    }
+  }
+
+  /// Marks a waypoint as delivered.
+  Future<void> markAsDelivered(int index) async {
+    Waypoint waypoint =
+        Provider.of<WaypointProvider>(context, listen: false).waypoints[index];
+    try {
+      await Provider.of<WaypointProvider>(context, listen: false)
+          .markAsDelivered(waypoint.postId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Waypoint marked as delivered.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to mark as delivered: $e')),
+      );
+    }
+  }
+
+  /// Opens a dialog to edit a waypoint.
+  Future<void> showWaypointDialog({
+    required Waypoint waypoint,
+    required int index,
+  }) async {
+    final TextEditingController nameController =
+        TextEditingController(text: waypoint.name);
+    final TextEditingController coordinateController =
+        TextEditingController(text: waypoint.coordinate);
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Waypoint'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Name',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: coordinateController,
+                  decoration: const InputDecoration(
+                    labelText: 'Coordinate (lat,lng)',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            ElevatedButton(
+              child: const Text('Save'),
+              onPressed: () async {
+                if (nameController.text.isNotEmpty &&
+                    coordinateController.text.isNotEmpty) {
+                  String name = nameController.text.trim();
+                  String coordinate = coordinateController.text.trim();
+
+                  if (!validateCoordinate(coordinate)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text(
+                              'Invalid coordinates. Please enter valid latitude and longitude.')),
+                    );
+                    return;
+                  }
+
+                  Waypoint updatedWaypoint = Waypoint(
+                    name: name,
+                    coordinate: coordinate,
+                    postId: waypoint.postId,
+                    isDelivered: waypoint.isDelivered,
                   );
 
-                  Navigator.pop(context);
+                  // Update via Provider
+                  try {
+                    await Provider.of<WaypointProvider>(context, listen: false)
+                        .updateWaypoint(updatedWaypoint);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Waypoint updated successfully.')),
+                    );
+                    Navigator.pop(context);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(
+                              'Failed to update waypoint: ${e.toString()}')),
+                    );
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Please fill in all fields')),
@@ -205,6 +424,7 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
             icon: const Icon(Icons.check),
             tooltip: 'Finish',
             onPressed: () {
+              // Navigate back or perform any necessary action
               Navigator.pop(context);
             },
           ),
@@ -227,66 +447,259 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
                   );
                 }
 
-                return ListView.builder(
-                  itemCount: waypointProvider.waypoints.length,
-                  itemBuilder: (context, index) {
-                    final waypoint = waypointProvider.waypoints[index];
-                    var coordinates = waypoint.coordinate.split(',');
-                    String latitude = coordinates[0];
-                    String longitude = coordinates[1];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      child: Card(
-                        elevation: 3,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Theme.of(context).primaryColor,
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(color: Colors.white),
+                // Split waypoints into delivered, current, and remaining
+                List<Waypoint> deliveredWaypoints = waypointProvider.waypoints
+                    .where((w) => w.isDelivered)
+                    .toList();
+
+                List<Waypoint> remainingWaypoints = waypointProvider.waypoints
+                    .where((w) => !w.isDelivered)
+                    .toList();
+
+                Waypoint? currentDelivery = remainingWaypoints.isNotEmpty
+                    ? remainingWaypoints.first
+                    : null;
+
+                List<Waypoint> otherRemaining = remainingWaypoints.length > 1
+                    ? remainingWaypoints.sublist(1)
+                    : [];
+
+                return SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Current Delivery Section
+                        if (currentDelivery != null) ...[
+                          const Text(
+                            'Current Delivery',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 2),
+                            child: Card(
+                              color: Colors.orange.shade50,
+                              elevation: 4,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: ListTile(
+                                leading: const Icon(
+                                  Icons.local_shipping,
+                                  color: Colors.orange,
+                                  size: 40,
+                                ),
+                                title: Text(
+                                  currentDelivery.name,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18),
+                                ),
+                                subtitle: Text(
+                                    'Lat: ${currentDelivery.coordinate.split(',')[0]}, Lng: ${currentDelivery.coordinate.split(',')[1]}\nPost ID: ${currentDelivery.postId}'),
+                                isThreeLine: true,
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit,
+                                          color: Colors.blue),
+                                      onPressed: () => showWaypointDialog(
+                                        waypoint: currentDelivery,
+                                        index: waypointProvider.waypoints
+                                            .indexOf(currentDelivery),
+                                      ),
+                                      tooltip: 'Edit',
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete,
+                                          color: Colors.red),
+                                      onPressed: () => removeWaypoint(
+                                        waypointProvider.waypoints
+                                            .indexOf(currentDelivery),
+                                      ),
+                                      tooltip: 'Delete',
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                          title: Text(waypoint.name),
-                          subtitle: Text('Lat: $latitude, Lng: $longitude'),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Edit Button
-                              IconButton(
-                                icon: const Icon(Icons.edit),
-                                color: Theme.of(context).primaryColor,
-                                onPressed: () {
-                                  // Navigate to Edit Functionality
-                                  // Alternatively, trigger a callback or function
-                                  // depending on your implementation
-                                },
-                              ),
-                              // Delete Button
-                              IconButton(
-                                icon: const Icon(Icons.delete),
-                                color: Colors.red,
-                                onPressed: () {
-                                  // Navigate to Delete Functionality
-                                  // Alternatively, trigger a callback or function
-                                  // depending on your implementation
-                                },
-                              ),
-                            ],
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Remaining Deliveries Section
+                        if (otherRemaining.isNotEmpty) ...[
+                          const Text(
+                            'Remaining Deliveries',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
                           ),
-                        ),
-                      ),
-                    );
-                  },
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            itemCount: otherRemaining.length,
+                            itemBuilder: (context, index) {
+                              final waypoint = otherRemaining[index];
+                              var coordinates = waypoint.coordinate.split(',');
+                              String latitude = coordinates[0];
+                              String longitude = coordinates[1];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 2),
+                                child: Card(
+                                  color: Colors.blue.shade50,
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: ListTile(
+                                    leading: const Icon(
+                                      Icons.delivery_dining,
+                                      color: Colors.blue,
+                                    ),
+                                    title: Text(
+                                      waypoint.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    subtitle: Text(
+                                        'Lat: $latitude, Lng: $longitude\nPost ID: ${waypoint.postId}'),
+                                    isThreeLine: true,
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit,
+                                              color: Colors.blue),
+                                          onPressed: () => showWaypointDialog(
+                                            waypoint: waypoint,
+                                            index: waypointProvider.waypoints
+                                                .indexOf(waypoint),
+                                          ),
+                                          tooltip: 'Edit',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              color: Colors.red),
+                                          onPressed: () => removeWaypoint(
+                                            waypointProvider.waypoints
+                                                .indexOf(waypoint),
+                                          ),
+                                          tooltip: 'Delete',
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            waypoint.isDelivered
+                                                ? Icons.check_circle
+                                                : Icons.check_circle_outline,
+                                            color: waypoint.isDelivered
+                                                ? Colors.green
+                                                : Colors.grey,
+                                          ),
+                                          onPressed: waypoint.isDelivered
+                                              ? null
+                                              : () => markAsDelivered(
+                                                  waypointProvider.waypoints
+                                                      .indexOf(waypoint)),
+                                          tooltip: waypoint.isDelivered
+                                              ? 'Delivered'
+                                              : 'Mark as Delivered',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Delivered Section
+                        if (deliveredWaypoints.isNotEmpty) ...[
+                          const Text(
+                            'Delivered',
+                            style: TextStyle(
+                                fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            itemCount: deliveredWaypoints.length,
+                            itemBuilder: (context, index) {
+                              final waypoint = deliveredWaypoints[index];
+                              var coordinates = waypoint.coordinate.split(',');
+                              String latitude = coordinates[0];
+                              String longitude = coordinates[1];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 4, vertical: 2),
+                                child: Card(
+                                  color: Colors.green.shade50,
+                                  elevation: 2,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: ListTile(
+                                    leading: const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.green,
+                                    ),
+                                    title: Text(
+                                      waypoint.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    subtitle: Text(
+                                        'Lat: $latitude, Lng: $longitude\nPost ID: ${waypoint.postId}'),
+                                    isThreeLine: true,
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit,
+                                              color: Colors.blue),
+                                          onPressed: () => showWaypointDialog(
+                                            waypoint: waypoint,
+                                            index: waypointProvider.waypoints
+                                                .indexOf(waypoint),
+                                          ),
+                                          tooltip: 'Edit',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              color: Colors.red),
+                                          onPressed: () => removeWaypoint(
+                                            waypointProvider.waypoints
+                                                .indexOf(waypoint),
+                                          ),
+                                          tooltip: 'Delete',
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
           ),
           const Divider(),
-          // Add Waypoints Section
+          // Add Waypoints Section (if any)
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -295,7 +708,7 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
         children: [
           FloatingActionButton.extended(
             heroTag: 'qrScan',
-            onPressed: isScanning ? null : _startQRScan,
+            onPressed: isScanning ? null : startQRScan,
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Scan QR'),
             tooltip: 'Scan QR Code',
@@ -303,7 +716,7 @@ class _WaypointAdderPageState extends State<WaypointAdderPage> {
           const SizedBox(height: 16),
           FloatingActionButton.extended(
             heroTag: 'manualEntry',
-            onPressed: _addWaypointManually,
+            onPressed: addWaypointManually,
             icon: const Icon(Icons.edit),
             label: const Text('Manual Entry'),
             tooltip: 'Add Waypoint Manually',

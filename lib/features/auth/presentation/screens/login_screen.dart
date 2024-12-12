@@ -1,6 +1,7 @@
 import 'package:dakmadad/core/theme/app_colors.dart';
 import 'package:dakmadad/features/auth/domain/services/auth_service.dart';
 import 'package:dakmadad/features/home/home_screen.dart';
+import 'package:dakmadad/l10n/generated/S.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'register_screen.dart';
@@ -37,6 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final s = S.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -47,25 +49,25 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 250,
               width: double.infinity,
               decoration: const BoxDecoration(color: AppColors.primaryRed),
-              child: const Padding(
-                padding: EdgeInsets.all(24),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    SizedBox(height: 100),
+                    const SizedBox(height: 100),
                     Text(
-                      "Welcome Back!",
-                      style: TextStyle(
+                      s!.welcomeBack,
+                      style: const TextStyle(
                         fontSize: 24,
                         color: Color(0xFFFFD700),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      "Sign into your Account",
-                      style: TextStyle(
+                      s.signIntoYourAccount,
+                      style: const TextStyle(
                         fontSize: 30,
                         fontWeight: FontWeight.bold,
                         color: AppColors.white,
@@ -85,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: emailController,
                     keyboardType: TextInputType.emailAddress,
                     decoration: InputDecoration(
-                      labelText: 'Email',
+                      labelText: s.email,
                       prefixIcon:
                           const Icon(Icons.email, color: AppColors.primaryRed),
                       filled: true,
@@ -102,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Password',
+                      labelText: s.password,
                       prefixIcon:
                           const Icon(Icons.lock, color: AppColors.primaryRed),
                       suffixIcon: IconButton(
@@ -131,11 +133,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
-                        // Handle forgot password action
+                        
                       },
-                      child: const Text(
-                        'Forgot Password?',
-                        style: TextStyle(color: Colors.red),
+                      child: Text(
+                        s.forgotPassword,
+                        style: const TextStyle(color: Colors.red),
                       ),
                     ),
                   ),
@@ -193,9 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                             )
-                          : const Text(
-                              "Login",
-                              style: TextStyle(
+                          : Text(
+                              s.login,
+                              style: const TextStyle(
                                 fontSize: 16,
                                 color: AppColors.white,
                                 fontWeight: FontWeight.bold,
@@ -211,8 +213,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               Divider(color: Colors.grey[300], thickness: 2)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text("Or login with",
-                            style: TextStyle(color: Colors.grey[600])),
+                        child: Text(
+                          s.orLoginWith,
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
                       ),
                       Expanded(
                           child:
@@ -239,17 +243,19 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const SizedBox(
+                    child: SizedBox(
                       width: double.infinity,
-                      child: Center(child: Text("Login with Phone")),
+                      child: Center(child: Text(s.loginWithPhone)),
                     ),
                   ),
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an Account? ",
-                          style: TextStyle(color: Colors.grey)),
+                      Text(
+                        s.dontHaveAccount,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
                       TextButton(
                         onPressed: () {
                           Navigator.push(
@@ -262,9 +268,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: const Text(
-                          "Register",
-                          style: TextStyle(
+                        child: Text(
+                          s.register,
+                          style: const TextStyle(
                               color: Colors.red, fontWeight: FontWeight.bold),
                         ),
                       ),

@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBnVMs_kqa3BpzfYdfk_OGv-HoGj6myHS0',
-    appId: '1:867503451116:android:8e72f4da2d3634de72eec9',
+    appId: '1:867503451116:android:5fa92f7ba8fe07a572eec9',
     messagingSenderId: '867503451116',
     projectId: 'india-post-cfab4',
     databaseURL: 'https://india-post-cfab4-default-rtdb.asia-southeast1.firebasedatabase.app',
@@ -74,4 +74,5 @@ class DefaultFirebaseOptions {
     databaseURL: 'https://india-post-cfab4-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket: 'india-post-cfab4.firebasestorage.app',
   );
+
 }

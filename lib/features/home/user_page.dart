@@ -250,7 +250,7 @@ class _UsersPageState extends State<UsersPage> {
             ),
 
             const SizedBox(height: 20),
-            // Language Section
+           
             Card(
               color: cardColor,
               elevation: 2,
@@ -281,8 +281,7 @@ class _UsersPageState extends State<UsersPage> {
             ),
 
             const SizedBox(height: 20),
-            // Additional Features Section
-            Card(
+            /*Card(
               color: cardColor,
               elevation: 2,
               shape: RoundedRectangleBorder(
@@ -305,7 +304,7 @@ class _UsersPageState extends State<UsersPage> {
                   ],
                 ),
               ),
-            ),
+            ),*/
 
             const SizedBox(height: 30),
 

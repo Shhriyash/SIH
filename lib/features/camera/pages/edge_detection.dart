@@ -3,10 +3,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:dakmadad/l10n/generated/S.dart';
 import 'package:edge_detection/edge_detection.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart'; // For MediaType
+import 'package:http_parser/http_parser.dart'; 
 import 'package:path/path.dart' as Path;
 import 'package:path_provider/path_provider.dart' as PathProvider;
 import 'package:permission_handler/permission_handler.dart';
@@ -147,23 +148,25 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
         final responseJson = jsonDecode(responseData.body);
         print('Success: ${responseJson['message']}');
 
-        // Show success message
+        // Show success message from ARB
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Photos uploaded successfully!')),
+          SnackBar(content: Text(S.of(context)!.photosUploaded)),
         );
       } else {
         // Handle server error response
         final responseData = await http.Response.fromStream(response);
         print('Failed to upload photos. Response: ${responseData.body}');
         setState(() {
-          _mapError = 'Failed to upload photos. Please try again.';
+          // Use ARB string for error uploading photos
+          _mapError = S.of(context)!.errorUploadingPhotos;
         });
       }
     } catch (e) {
       // Handle exceptions during the upload process
       print('Error uploading photos: $e');
       setState(() {
-        _mapError = 'Error uploading photos: $e';
+        // Use ARB string for error uploading photos
+        _mapError = S.of(context)!.errorUploadingPhotos;
       });
     } finally {
       setState(() {
@@ -339,7 +342,7 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edge Detection'),
+        title: const Text('Scan Parcel'),
         centerTitle: true,
         backgroundColor: theme.primaryColor,
         elevation: 0,
@@ -360,8 +363,6 @@ class _EdgeDetectionPageState extends State<EdgeDetectionPage> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    // Optionally, remove this if you don't want the API field on the main page
-                    // buildApiEndpointField(),
                     const SizedBox(height: 20),
                     // Toggle for capturing rear image
                     Card(

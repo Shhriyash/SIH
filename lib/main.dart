@@ -5,16 +5,18 @@ import 'package:dakmadad/firebase_options.dart';
 import 'package:dakmadad/l10n/generated/S.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gemini/flutter_gemini.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/domain/services/auth_service.dart';
 import 'features/auth/presentation/screens/splash_screen.dart';
-// Import WaypointProvider
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  Gemini.init(apiKey: 'AIzaSyATtYBdDvX6YS48FcAVtHZoZcQcPMchZ0Y');
   runApp(const MyApp());
 }
 
@@ -72,7 +74,7 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider<AuthService>(create: (_) => AuthService()),
         ChangeNotifierProvider<ThemeNotifier>(create: (_) => _themeNotifier!),
         ChangeNotifierProvider<WaypointProvider>(
-            create: (_) => WaypointProvider()), // Added WaypointProvider
+            create: (_) => WaypointProvider()), 
       ],
       child: Consumer<ThemeNotifier>(
         builder: (context, themeNotifier, child) {
@@ -84,7 +86,6 @@ class _MyAppState extends State<MyApp> {
             locale: _locale,
             localizationsDelegates: S.localizationsDelegates,
             supportedLocales: S.supportedLocales,
-            // The SplashScreen handles all navigation logic
             home: SplashScreen(
               onLanguageChange: _changeLanguage,
               onThemeChange: (ThemeMode mode) {

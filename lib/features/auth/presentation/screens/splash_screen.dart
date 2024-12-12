@@ -29,11 +29,9 @@ class _SplashScreenState extends State<SplashScreen> {
     _checkLoginStatus();
   }
 
-  /// Checks if the user is logged in and navigates accordingly.
   Future<void> _checkLoginStatus() async {
     bool isLoggedIn = await _authService.getLoginState();
     if (isLoggedIn && _authService.currentUser != null) {
-      // Navigate to HomeScreen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

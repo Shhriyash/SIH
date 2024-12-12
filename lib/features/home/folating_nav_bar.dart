@@ -17,8 +17,8 @@ class FloatingNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: 90, // Adjusted to make navbar narrower
-      right: 90, // Adjusted to make navbar narrower
+      left: 60, // Adjusted to make navbar narrower
+      right: 60, // Adjusted to make navbar narrower
       bottom: 18,
       child: Container(
         height: 70, // Slimmer height

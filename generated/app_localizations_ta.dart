@@ -1,10 +1,10 @@
+import 'app_localizations.dart';
+
 // ignore_for_file: type=lint
 
-import 'package:dakmadad/l10n/generated/S.dart';
-
 /// The translations for Tamil (`ta`).
-class STa extends S {
-  STa([String locale = 'ta']) : super(locale);
+class AppLocalizationsTa extends AppLocalizations {
+  AppLocalizationsTa([String locale = 'ta']) : super(locale);
 
   @override
   String get yourLocation => 'உங்கள் இருப்பிடம்';
@@ -46,7 +46,7 @@ class STa extends S {
   String get checkStatus => 'நிலை சரிபார்க்கவும்';
 
   @override
-  String get checkStatusOfArticle => 'கைமுறையாக விவரங்களைச் சேர்க்கவும்';
+  String get checkStatusOfArticle => 'கட்டுரையின் நிலையை சரிபார்க்கவும்';
 
   @override
   String get settings => 'அமைப்புகள்';
@@ -58,8 +58,7 @@ class STa extends S {
   String get waypointAdder => 'வெப்பாயிண்ட் சேர்க்கும் வசதி';
 
   @override
-  String get adjustYourDeliveryPreferences =>
-      'உங்கள் டெலிவரி விருப்பங்களை மாற்றவும்';
+  String get adjustYourDeliveryPreferences => 'உங்கள் டெலிவரி விருப்பங்களை மாற்றவும்';
 
   @override
   String get office => 'அஞ்சல் நிலையம்';
@@ -165,18 +164,4 @@ class STa extends S {
 
   @override
   String get loading => 'ஏற்றுகிறது...';
-  @override
-  String get welcomeTo => 'வரவேற்கிறோம்';
-
-  @override
-  String get dakMadad => 'டாக் மடத்';
-
-  @override
-  String get poweredByIndiaPost => 'இந்தியா போஸ்ட் மூலம் இயக்கப்படுகிறது';
-
-  @override
-  String get dakSewaJanSewa => 'டாக் சேவை, மக்கள் சேவை';
-
-  @override
-  String get getStarted => 'தொடங்கவும்';
 }

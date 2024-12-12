@@ -1,4 +1,3 @@
-import 'package:dakmadad/l10n/generated/S.dart';
 import 'package:flutter/material.dart';
 
 class PlaceholderScreen extends StatelessWidget {
@@ -13,9 +12,9 @@ class PlaceholderScreen extends StatelessWidget {
         title: Text(title),
         backgroundColor: const Color(0xFFB71C1C),
       ),
-      body: Center(
+      body: const Center(
         child: Text(
-          S.of(context)!.placeholderScreenText(title),
+          'Notification page',
         ),
       ),
     );
