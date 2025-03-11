@@ -177,7 +177,7 @@ def check_delivery():
             return redirect("https://c390-49-249-229-42.ngrok-free.app/")
             
         else:
-            return redirect(f"https://0f4e-49-249-229-42.ngrok-free.app/delivery_status?post_id={post_id}")
+            return redirect(f"https://cd6d-49-249-229-42.ngrok-free.app/delivery_status?post_id={post_id}")
 
     
     except Exception as e:

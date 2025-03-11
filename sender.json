@@ -1,14 +1,14 @@
 {
-    "photo_path": "scanned_posts\\1733959911419_rear.jpg",
-    "post_id": "173396008904",
+    "photo_path": "scanned_posts\\1734000796373_rear.jpg",
+    "post_id": "173400093550",
     "extracted_data": {
-        "text": "Suresh Chouhan 8284916248 Hotel Rama Palace Sitapur, Uttrakhand 246471"
+        "text": "Tilak Neema 7470559957 5 A Parshwanath Nagar Indore (M.P)"
     },
     "groq_analysis": {
-        "Name": "Suresh Chouhan",
-        "PhoneNumber": "8284916248",
-        "Address": "Hotel Rama Palace Sitapur",
-        "Pincode": "246471"
+        "Name": "Tilak Neema",
+        "PhoneNumber": "7470559957",
+        "Address": "5 A Parshwanath Nagar Indore (M.P)",
+        "Pincode": null
     },
-    "timestamp": "2024-12-12 05:04:59"
+    "timestamp": "2024-12-12 16:25:40"
 }

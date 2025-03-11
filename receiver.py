@@ -329,7 +329,7 @@ if __name__ == "__main__":
         upload_to_firestore(post_id, data)
         
         # Assuming you already have post_id, near_pincode, and near_po_name defined
-        qr_link = f"https://0f4e-49-249-229-42.ngrok-free.app/check_delivery?post_id={post_id}"
+        qr_link = f"https://cd6d-49-249-229-42.ngrok-free.app/check_delivery?post_id={post_id}"
         print(qr_link)
 
         # Generate QR code with the URL
